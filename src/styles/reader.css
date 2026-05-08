@@ -1019,11 +1019,11 @@
 
 /* ---- Modal (Prompt) ---- */
 .rd-modal-scrim {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(10, 14, 24, 0.42);
   backdrop-filter: blur(2px);
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
