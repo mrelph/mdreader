@@ -1,29 +1,99 @@
 import { useMemo } from 'react';
 import type { Note } from '../types';
-import { FolderIcon, OutlineIcon, PlusIcon, SearchIcon, StarIcon } from '../icons';
+import {
+  FilePlusIcon,
+  FolderIcon,
+  FolderPlusIcon,
+  InboxIcon,
+  OutlineIcon,
+  SearchIcon,
+  StarIcon,
+  TabCloseIcon,
+  TrashIcon,
+} from '../icons';
 import { readingMinutes } from '../notes';
+
+export type FolderEntry = {
+  name: string;          // '' = Inbox
+  count: number;
+  // Real folder on disk (subdirectory under workspace).
+  diskFolder: boolean;
+};
 
 type Props = {
   notes: Note[];
-  activeId: string;
+  folders: FolderEntry[];
+  totalCount: number;
+  activeId: string | null;
   onSelect: (id: string) => void;
   query: string;
   onQuery: (q: string) => void;
-  folder: string;
+  folder: string;        // 'All' | '' (Inbox) | <subdir name> | 'Opened'
   onFolder: (f: string) => void;
-  onNew: () => void;
+  hasWorkspace: boolean;
+
+  onNewFile: () => void;
+  onNewFolder: () => void;
+  onCloseNote: (id: string) => void;
+  onDeleteNote: (note: Note) => void;
+  onDeleteFolder: (folderName: string) => void;
 };
 
-export function Sidebar({ notes, activeId, onSelect, query, onQuery, folder, onFolder, onNew }: Props) {
-  const folders = useMemo(() => ['All', ...Array.from(new Set(notes.map((n) => n.folder)))], [notes]);
+const ALL = 'All';
+const INBOX = '';
+
+export function Sidebar({
+  notes,
+  folders,
+  totalCount,
+  activeId,
+  onSelect,
+  query,
+  onQuery,
+  folder,
+  onFolder,
+  hasWorkspace,
+  onNewFile,
+  onNewFolder,
+  onCloseNote,
+  onDeleteNote,
+  onDeleteFolder,
+}: Props) {
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
-    return notes.filter(
-      (n) =>
-        (folder === 'All' || n.folder === folder) &&
-        (q === '' || n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q))
-    );
+    return notes.filter((n) => {
+      if (folder === ALL) {
+        // include everything
+      } else if (folder === INBOX) {
+        // workspace-root files only — anything with a subfolder or 'Opened' is filtered out
+        if (n.folder !== '') return false;
+      } else if (n.folder !== folder) return false;
+      if (q === '') return true;
+      return n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q);
+    });
   }, [notes, folder, query]);
+
+  const folderRow = (key: string, label: string, count: number, icon: React.ReactNode, deletable: boolean) => (
+    <div key={key} className="rd-folder-row" data-active={folder === key ? '1' : '0'}>
+      <button className="rd-folder" onClick={() => onFolder(key)}>
+        {icon}
+        <span>{label}</span>
+        <span className="rd-folder-count">{count}</span>
+      </button>
+      {deletable && (
+        <button
+          className="rd-folder-action"
+          title={`Delete folder "${label}"`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteFolder(key);
+          }}
+        >
+          <TrashIcon />
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <aside className="rd-side">
@@ -40,56 +110,92 @@ export function Sidebar({ notes, activeId, onSelect, query, onQuery, folder, onF
         <span className="rd-search-kbd">⌘K</span>
       </div>
 
+      <div className="rd-side-actions">
+        <button className="rd-side-action" onClick={onNewFile} disabled={!hasWorkspace}>
+          <FilePlusIcon />
+          <span>New note</span>
+        </button>
+        <button className="rd-side-action" onClick={onNewFolder} disabled={!hasWorkspace}>
+          <FolderPlusIcon />
+          <span>New folder</span>
+        </button>
+      </div>
+
       <div className="rd-folders">
-        {folders.map((f) => (
-          <button
-            key={f}
-            className="rd-folder"
-            data-active={folder === f ? '1' : '0'}
-            onClick={() => onFolder(f)}
-          >
-            {f === 'All' ? <OutlineIcon /> : <FolderIcon />}
-            <span>{f}</span>
-            <span className="rd-folder-count">
-              {f === 'All' ? notes.length : notes.filter((n) => n.folder === f).length}
-            </span>
-          </button>
-        ))}
+        {folderRow(ALL, 'All', totalCount, <OutlineIcon />, false)}
+        {folders.map((f) =>
+          f.name === INBOX
+            ? folderRow(INBOX, 'Inbox', f.count, <InboxIcon />, false)
+            : f.name === 'Opened'
+              ? folderRow('Opened', 'Opened', f.count, <FolderIcon />, false)
+              : folderRow(f.name, f.name, f.count, <FolderIcon />, f.diskFolder)
+        )}
       </div>
 
       <div className="rd-side-head">
         <span>
           {filtered.length} note{filtered.length === 1 ? '' : 's'}
         </span>
-        <button className="rd-side-new" title="Open .md file" onClick={onNew}>
-          <PlusIcon />
-        </button>
       </div>
 
       <div className="rd-notelist">
         {filtered.map((n) => (
-          <button
+          <div
             key={n.id}
             className="rd-noteitem"
             data-active={activeId === n.id ? '1' : '0'}
-            onClick={() => onSelect(n.id)}
           >
-            <div className="rd-noteitem-row">
-              <span className="rd-noteitem-title">{n.title}</span>
-              {n.starred && (
-                <span className="rd-noteitem-star">
-                  <StarIcon filled />
-                </span>
+            <button className="rd-noteitem-main" onClick={() => onSelect(n.id)}>
+              <div className="rd-noteitem-row">
+                <span className="rd-noteitem-title">{n.title}</span>
+                {n.starred && (
+                  <span className="rd-noteitem-star">
+                    <StarIcon filled />
+                  </span>
+                )}
+              </div>
+              <div className="rd-noteitem-preview">{n.preview}</div>
+              <div className="rd-noteitem-meta">
+                <span>{n.date}</span>
+                <span className="rd-noteitem-dot">·</span>
+                <span>{readingMinutes(n.body)} min</span>
+              </div>
+            </button>
+            <div className="rd-noteitem-actions">
+              <button
+                className="rd-noteitem-action"
+                title="Close note"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCloseNote(n.id);
+                }}
+              >
+                <TabCloseIcon />
+              </button>
+              {n.path && (
+                <button
+                  className="rd-noteitem-action rd-noteitem-action-danger"
+                  title="Delete file"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteNote(n);
+                  }}
+                >
+                  <TrashIcon />
+                </button>
               )}
             </div>
-            <div className="rd-noteitem-preview">{n.preview}</div>
-            <div className="rd-noteitem-meta">
-              <span>{n.date}</span>
-              <span className="rd-noteitem-dot">·</span>
-              <span>{readingMinutes(n.body)} min</span>
-            </div>
-          </button>
+          </div>
         ))}
+        {filtered.length === 0 && hasWorkspace && (
+          <div className="rd-notelist-empty">
+            {query
+              ? 'No notes match your search.'
+              : folder === ALL
+                ? 'No notes yet — create one with the button above.'
+                : 'This folder is empty.'}
+          </div>
+        )}
       </div>
     </aside>
   );

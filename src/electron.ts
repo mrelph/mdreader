@@ -5,19 +5,33 @@ export type ElectronFile = {
   path: string;
   name: string;
   text: string;
+  mtime?: number;
+  folder?: string;
 };
 
-export type ElectronFolder = {
+export type ElectronWorkspace = {
   dir: string;
-  files: (ElectronFile & { mtime: number })[];
+  folders: string[];
+  files: (ElectronFile & { folder: string; mtime: number })[];
 };
 
 export type ElectronAPI = {
   platform: NodeJS.Platform;
   openFile: () => Promise<ElectronFile | null>;
-  openFolder: () => Promise<ElectronFolder | null>;
+  openFolder: () => Promise<ElectronWorkspace | null>;
   readFile: (path: string) => Promise<ElectronFile | null>;
   getLaunchFiles: () => Promise<ElectronFile[]>;
+
+  workspace: {
+    list: (dir: string) => Promise<ElectronWorkspace | null>;
+    writeFile: (path: string, content: string) => Promise<ElectronFile>;
+    createFile: (dir: string, filename: string, content?: string) => Promise<ElectronFile>;
+    createFolder: (parentDir: string, folderName: string) => Promise<{ path: string; name: string }>;
+    deleteFile: (path: string) => Promise<true>;
+    deleteFolder: (path: string) => Promise<true>;
+    rename: (oldPath: string, newPath: string) => Promise<true>;
+  };
+
   window: {
     minimize: () => void;
     toggleMaximize: () => void;
@@ -25,6 +39,7 @@ export type ElectronAPI = {
     isMaximized: () => Promise<boolean>;
     onMaximizedChange: (cb: (value: boolean) => void) => () => void;
   };
+
   onOpenFilePath: (cb: (path: string) => void) => () => void;
 };
 

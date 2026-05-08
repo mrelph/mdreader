@@ -143,24 +143,109 @@ ipcMain.handle('dialog:open-file', async (event) => {
 ipcMain.handle('dialog:open-folder', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const result = await dialog.showOpenDialog(win, {
-    title: 'Open folder of markdown files',
-    properties: ['openDirectory'],
+    title: 'Open notes folder',
+    properties: ['openDirectory', 'createDirectory'],
   });
   if (result.canceled || !result.filePaths.length) return null;
-  const dir = result.filePaths[0];
+  return await listWorkspace(result.filePaths[0]);
+});
+
+// Re-read a workspace directory by path (used on app launch to restore the
+// last-opened folder, and after create/delete operations to refresh).
+ipcMain.handle('fs:list-workspace', async (_event, dir) => {
+  if (typeof dir !== 'string' || !dir) return null;
+  try {
+    return await listWorkspace(dir);
+  } catch {
+    // Directory was moved or deleted while remembered — let the renderer
+    // know so it can clear its persisted reference.
+    return null;
+  }
+});
+
+// Walk one level of subdirectories — files at the workspace root belong to
+// the implicit "Inbox", files in `${dir}/<name>/` belong to that folder.
+async function listWorkspace(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
+  const folders = [];
   const files = [];
   for (const e of entries) {
-    if (!e.isFile()) continue;
-    if (!/\.(md|markdown|mdx)$/i.test(e.name)) continue;
-    const filePath = path.join(dir, e.name);
-    const stat = await fs.stat(filePath);
-    const text = await fs.readFile(filePath, 'utf8');
-    files.push({ path: filePath, name: e.name, text, mtime: stat.mtimeMs });
+    if (e.isDirectory()) {
+      if (e.name.startsWith('.')) continue;
+      folders.push(e.name);
+      const subEntries = await fs.readdir(path.join(dir, e.name), { withFileTypes: true });
+      for (const sub of subEntries) {
+        if (!sub.isFile() || !/\.(md|markdown|mdx)$/i.test(sub.name)) continue;
+        await pushFile(files, path.join(dir, e.name, sub.name), e.name);
+      }
+    } else if (e.isFile() && /\.(md|markdown|mdx)$/i.test(e.name)) {
+      await pushFile(files, path.join(dir, e.name), '');
+    }
   }
-  // Newest first — feels right for a notes app.
+  folders.sort((a, b) => a.localeCompare(b));
   files.sort((a, b) => b.mtime - a.mtime);
-  return { dir, files };
+  return { dir, folders, files };
+}
+
+async function pushFile(files, filePath, folder) {
+  const stat = await fs.stat(filePath);
+  const text = await fs.readFile(filePath, 'utf8');
+  files.push({ path: filePath, name: path.basename(filePath), folder, text, mtime: stat.mtimeMs });
+}
+
+ipcMain.handle('fs:write-file', async (_event, filePath, content) => {
+  if (typeof filePath !== 'string' || !filePath) throw new Error('Invalid path');
+  await fs.writeFile(filePath, content ?? '', 'utf8');
+  const stat = await fs.stat(filePath);
+  return { path: filePath, name: path.basename(filePath), text: content ?? '', mtime: stat.mtimeMs };
+});
+
+// Sanitise a user-provided filename — strip path separators and reserved
+// chars so the renderer can never break out of the target directory.
+function sanitiseName(name) {
+  return String(name).replace(/[\\/:*?"<>|]/g, '_').trim();
+}
+
+ipcMain.handle('fs:create-file', async (_event, dir, filename, content = '') => {
+  if (typeof dir !== 'string' || typeof filename !== 'string') throw new Error('Invalid args');
+  const safe = sanitiseName(filename);
+  if (!safe) throw new Error('Empty filename');
+  const ext = path.extname(safe).toLowerCase();
+  const finalName = /\.(md|markdown|mdx|txt)$/i.test(ext) ? safe : `${safe}.md`;
+  const filePath = path.join(dir, finalName);
+  let exists = false;
+  try { await fs.access(filePath); exists = true; } catch { /* expected */ }
+  if (exists) throw new Error(`A file named "${finalName}" already exists.`);
+  await fs.writeFile(filePath, content, 'utf8');
+  const stat = await fs.stat(filePath);
+  return { path: filePath, name: finalName, text: content, mtime: stat.mtimeMs };
+});
+
+ipcMain.handle('fs:create-folder', async (_event, parentDir, folderName) => {
+  if (typeof parentDir !== 'string' || typeof folderName !== 'string') throw new Error('Invalid args');
+  const safe = sanitiseName(folderName);
+  if (!safe) throw new Error('Empty folder name');
+  const folderPath = path.join(parentDir, safe);
+  await fs.mkdir(folderPath, { recursive: false });
+  return { path: folderPath, name: safe };
+});
+
+ipcMain.handle('fs:delete-file', async (_event, filePath) => {
+  if (typeof filePath !== 'string' || !filePath) throw new Error('Invalid path');
+  await fs.unlink(filePath);
+  return true;
+});
+
+ipcMain.handle('fs:delete-folder', async (_event, folderPath) => {
+  if (typeof folderPath !== 'string' || !folderPath) throw new Error('Invalid path');
+  await fs.rm(folderPath, { recursive: true, force: false });
+  return true;
+});
+
+ipcMain.handle('fs:rename', async (_event, oldPath, newPath) => {
+  if (typeof oldPath !== 'string' || typeof newPath !== 'string') throw new Error('Invalid args');
+  await fs.rename(oldPath, newPath);
+  return true;
 });
 
 ipcMain.handle('fs:read-file', async (_event, filePath) => {

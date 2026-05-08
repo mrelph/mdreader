@@ -11,6 +11,20 @@ contextBridge.exposeInMainWorld('electron', {
   readFile: (path) => ipcRenderer.invoke('fs:read-file', path),
   getLaunchFiles: () => ipcRenderer.invoke('app:get-launch-files'),
 
+  // Workspace operations — these all act on the user's chosen notes folder
+  // (and its immediate subdirectories). Paths come from listWorkspace and
+  // are passed back to the main process unchanged so the renderer never
+  // computes filesystem paths itself.
+  workspace: {
+    list: (dir) => ipcRenderer.invoke('fs:list-workspace', dir),
+    writeFile: (path, content) => ipcRenderer.invoke('fs:write-file', path, content),
+    createFile: (dir, filename, content) => ipcRenderer.invoke('fs:create-file', dir, filename, content),
+    createFolder: (parentDir, folderName) => ipcRenderer.invoke('fs:create-folder', parentDir, folderName),
+    deleteFile: (path) => ipcRenderer.invoke('fs:delete-file', path),
+    deleteFolder: (path) => ipcRenderer.invoke('fs:delete-folder', path),
+    rename: (oldPath, newPath) => ipcRenderer.invoke('fs:rename', oldPath, newPath),
+  },
+
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),

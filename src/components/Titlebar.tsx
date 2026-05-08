@@ -1,4 +1,4 @@
-import { CloseIcon, FocusIcon, MoonIcon, OpenIcon, SunIcon } from '../icons';
+import { CloseIcon, EyeIcon, FocusIcon, MoonIcon, OpenIcon, PencilIcon, SunIcon } from '../icons';
 import { getElectron } from '../electron';
 
 type Props = {
@@ -9,9 +9,23 @@ type Props = {
   onFocus: () => void;
   focused: boolean;
   onOpenFile: () => void;
+  editing: boolean;
+  canEdit: boolean;
+  onToggleEdit: () => void;
 };
 
-export function Titlebar({ theme, onTheme, title, accent, onFocus, focused, onOpenFile }: Props) {
+export function Titlebar({
+  theme,
+  onTheme,
+  title,
+  accent,
+  onFocus,
+  focused,
+  onOpenFile,
+  editing,
+  canEdit,
+  onToggleEdit,
+}: Props) {
   const electron = getElectron();
   const onMin = electron ? () => electron.window.minimize() : undefined;
   const onMax = electron ? () => electron.window.toggleMaximize() : undefined;
@@ -27,6 +41,15 @@ export function Titlebar({ theme, onTheme, title, accent, onFocus, focused, onOp
       </div>
       <div className="rd-tb-mid" />
       <div className="rd-tb-right">
+        <button
+          className="rd-tb-icon"
+          title={editing ? 'Read mode' : 'Edit mode'}
+          onClick={onToggleEdit}
+          disabled={!canEdit}
+          data-active={editing ? '1' : '0'}
+        >
+          {editing ? <EyeIcon /> : <PencilIcon />}
+        </button>
         <button className="rd-tb-icon" title="Open .md file" onClick={onOpenFile}>
           <OpenIcon />
         </button>
