@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Note, TocEntry } from '../types';
 import { buildToc, readingMinutes, wordCount } from '../notes';
 import { Outline } from './Outline';
 import { Editor } from './Editor';
+import { FindBar } from './FindBar';
 
 type Props = {
   note: Note;
@@ -14,22 +15,30 @@ type Props = {
   onDraftChange: (value: string) => void;
   onSave: () => void;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  findOpen: boolean;
+  onCloseFind: () => void;
 };
 
-export function Reader({ note, focused, editing, draft, onDraftChange, onSave, saveStatus }: Props) {
+export function Reader({
+  note,
+  focused,
+  editing,
+  draft,
+  onDraftChange,
+  onSave,
+  saveStatus,
+  findOpen,
+  onCloseFind,
+}: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
   const [activeIdx, setActiveIdx] = useState(0);
 
-  // The rendered body — either the saved on-disk text (read mode) or the
-  // unsaved draft (edit mode). Outline and word-count track whichever we're
-  // showing so the right rail stays in sync while typing.
   const sourceText = editing ? draft : note.body;
   const toc: TocEntry[] = useMemo(() => buildToc(sourceText), [sourceText]);
   const minutes = readingMinutes(sourceText);
   const words = wordCount(sourceText);
 
-  // Reset scroll + progress when the open note or mode changes.
   useEffect(() => {
     const el = scrollerRef.current;
     if (el) el.scrollTop = 0;
@@ -38,7 +47,7 @@ export function Reader({ note, focused, editing, draft, onDraftChange, onSave, s
   }, [note.id, editing]);
 
   useEffect(() => {
-    if (editing) return; // scroll-spy only applies to the rendered view
+    if (editing) return;
     const el = scrollerRef.current;
     if (!el) return;
     const onScroll = () => {
@@ -85,6 +94,34 @@ export function Reader({ note, focused, editing, draft, onDraftChange, onSave, s
       );
     };
 
+  // Find-bar callbacks. The textarea lives inside scrollerRef in edit mode,
+  // so we reach in by class name; in read mode we estimate the DOM scroll
+  // position from a source offset by scrolling proportionally — not perfect
+  // but fine for a notes app where matches are usually within one screen
+  // of the reader's perspective.
+  const handleFocusRange = useCallback((start: number, end: number) => {
+    const ta = scrollerRef.current?.querySelector<HTMLTextAreaElement>('.rd-editor');
+    if (!ta) return;
+    ta.focus();
+    ta.setSelectionRange(start, end);
+    // Force the textarea to scroll the selection into view by toggling it.
+    const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 22;
+    const before = ta.value.slice(0, start);
+    const lineNumber = before.split('\n').length - 1;
+    ta.scrollTop = Math.max(0, lineNumber * lineHeight - ta.clientHeight / 3);
+  }, []);
+
+  const handleScrollToOffset = useCallback(
+    (offset: number) => {
+      const el = scrollerRef.current;
+      if (!el) return;
+      const ratio = offset / Math.max(1, sourceText.length);
+      const target = ratio * (el.scrollHeight - el.clientHeight);
+      el.scrollTo({ top: target, behavior: 'smooth' });
+    },
+    [sourceText.length]
+  );
+
   const folderLabel = note.folder || 'Inbox';
   const saveText =
     saveStatus === 'saving' ? 'Saving…' :
@@ -98,6 +135,14 @@ export function Reader({ note, focused, editing, draft, onDraftChange, onSave, s
           <div className="rd-progress-bar" style={{ width: `${progress}%` }} />
         </div>
       )}
+      <FindBar
+        open={findOpen}
+        onClose={onCloseFind}
+        source={sourceText}
+        editing={editing}
+        onFocusRange={handleFocusRange}
+        onScrollToOffset={handleScrollToOffset}
+      />
       <div className="rd-main-inner" ref={scrollerRef} data-mode={editing ? 'edit' : 'read'}>
         <article className="rd-article">
           <header className="rd-article-head">

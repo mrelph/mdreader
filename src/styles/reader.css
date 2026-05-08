@@ -1112,3 +1112,164 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* ---- Find bar ---- */
+.rd-find {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 10px;
+  background: var(--rd-canvas);
+  border: 1px solid var(--rd-line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(20px);
+  -webkit-app-region: no-drag;
+}
+.rd-find-icon {
+  display: flex;
+  align-items: center;
+  color: var(--rd-fg-3);
+}
+.rd-find-input {
+  width: 200px;
+  border: 0;
+  background: transparent;
+  outline: 0;
+  color: var(--rd-fg);
+  font-size: 13px;
+  padding: 4px 0;
+}
+.rd-find-input::placeholder {
+  color: var(--rd-fg-3);
+}
+.rd-find-status {
+  font-size: 11px;
+  color: var(--rd-fg-3);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: right;
+  padding: 0 4px;
+}
+.rd-find-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  border-radius: 5px;
+  color: var(--rd-fg-2);
+}
+.rd-find-btn:hover:not(:disabled) {
+  background: var(--rd-hover);
+  color: var(--rd-fg);
+}
+.rd-find-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---- Cheatsheet (keyboard-shortcut help) ---- */
+.rd-cheatsheet-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 24, 0.42);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  -webkit-app-region: no-drag;
+}
+.rd-cheatsheet {
+  width: min(560px, 100%);
+  background: var(--rd-canvas);
+  border: 1px solid var(--rd-line);
+  border-radius: 10px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+.rd-cheatsheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--rd-line);
+}
+.rd-cheatsheet-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rd-fg);
+  letter-spacing: -0.005em;
+}
+.rd-cheatsheet-close {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  border-radius: 5px;
+  color: var(--rd-fg-3);
+}
+.rd-cheatsheet-close:hover {
+  background: var(--rd-hover);
+  color: var(--rd-fg);
+}
+.rd-cheatsheet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 16px 18px 18px;
+}
+.rd-cheatsheet-col-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--rd-fg-3);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.rd-cheatsheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 12.5px;
+  color: var(--rd-fg-2);
+}
+.rd-cheatsheet-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.rd-cheatsheet-keys-sep {
+  color: var(--rd-fg-3);
+  font-size: 11px;
+}
+.rd-cheatsheet-row kbd {
+  font-family: var(--rd-mono);
+  font-size: 10.5px;
+  padding: 2px 6px;
+  background: var(--rd-input-bg);
+  border: 1px solid var(--rd-line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--rd-fg);
+}
+.rd-cheatsheet-label {
+  flex: 1;
+  text-align: right;
+  color: var(--rd-fg);
+}

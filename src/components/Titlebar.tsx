@@ -1,4 +1,4 @@
-import { CloseIcon, EyeIcon, FocusIcon, MoonIcon, OpenIcon, PencilIcon, SunIcon } from '../icons';
+import { CloseIcon, EyeIcon, FocusIcon, HelpIcon, MoonIcon, OpenIcon, PencilIcon, SunIcon } from '../icons';
 import { getElectron } from '../electron';
 
 type Props = {
@@ -12,6 +12,8 @@ type Props = {
   editing: boolean;
   canEdit: boolean;
   onToggleEdit: () => void;
+  onToggleHelp: () => void;
+  helpOpen: boolean;
 };
 
 export function Titlebar({
@@ -25,6 +27,8 @@ export function Titlebar({
   editing,
   canEdit,
   onToggleEdit,
+  onToggleHelp,
+  helpOpen,
 }: Props) {
   const electron = getElectron();
   const onMin = electron ? () => electron.window.minimize() : undefined;
@@ -49,6 +53,14 @@ export function Titlebar({
           data-active={editing ? '1' : '0'}
         >
           {editing ? <EyeIcon /> : <PencilIcon />}
+        </button>
+        <button
+          className="rd-tb-icon"
+          title="Keyboard shortcuts (Ctrl+/)"
+          onClick={onToggleHelp}
+          data-active={helpOpen ? '1' : '0'}
+        >
+          <HelpIcon />
         </button>
         <button className="rd-tb-icon" title="Open .md file" onClick={onOpenFile}>
           <OpenIcon />

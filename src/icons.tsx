@@ -143,3 +143,23 @@ export const InboxIcon = () => (
     <path d="M5.5 5h13a2 2 0 0 1 2 1.7L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6l1.5-5.3A2 2 0 0 1 5.5 5z" />
   </svg>
 );
+
+export const HelpIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" {...stroke} strokeWidth={1.7}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.1 9a3 3 0 1 1 5 2c-1 .8-2.1 1.4-2.1 2.5" />
+    <line x1="12" y1="17" x2="12" y2="17.01" />
+  </svg>
+);
+
+export const ChevronUpIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" {...stroke} strokeWidth={2}>
+    <path d="m18 15-6-6-6 6" />
+  </svg>
+);
+
+export const ChevronDownIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" {...stroke} strokeWidth={2}>
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);

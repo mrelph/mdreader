@@ -5,6 +5,7 @@ import { Tabs } from './components/Tabs';
 import { Reader } from './components/Reader';
 import { EmptyState } from './components/EmptyState';
 import { Prompt, type PromptKind } from './components/Prompt';
+import { Cheatsheet } from './components/Cheatsheet';
 import { fileToNote } from './notes';
 import { openMarkdownFile } from './openFile';
 import { getElectron } from './electron';
@@ -47,6 +48,9 @@ function App() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
 
   const [prompt, setPrompt] = useState<PromptKind | null>(null);
   // The pending action a Prompt resolves to. Modal-based UI doesn't compose
@@ -394,8 +398,20 @@ function App() {
       } else if (mod && e.key.toLowerCase() === 'e' && note?.path) {
         e.preventDefault();
         setEditing((v) => !v);
-      } else if (e.key === 'Escape' && focused) {
-        setFocused(false);
+      } else if (mod && e.key === '/') {
+        e.preventDefault();
+        setHelpOpen((v) => !v);
+      } else if (mod && e.key.toLowerCase() === 'f' && note) {
+        e.preventDefault();
+        setFindOpen(true);
+      } else if (e.key === 'Escape') {
+        if (helpOpen) {
+          setHelpOpen(false);
+        } else if (findOpen) {
+          setFindOpen(false);
+        } else if (focused) {
+          setFocused(false);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
@@ -407,8 +423,11 @@ function App() {
     handleNewFolder,
     workspace,
     focused,
+    note,
     note?.path,
     inElectron,
+    helpOpen,
+    findOpen,
   ]);
 
   // ── Folder list for sidebar ─────────────────────────────────────────────
@@ -466,6 +485,8 @@ function App() {
         editing={editing}
         canEdit={canEdit}
         onToggleEdit={() => setEditing((v) => !v)}
+        onToggleHelp={() => setHelpOpen((v) => !v)}
+        helpOpen={helpOpen}
       />
       <div className="rd-body">
         {!focused && (
@@ -509,6 +530,8 @@ function App() {
               onDraftChange={setDraft}
               onSave={saveDraft}
               saveStatus={saveStatus}
+              findOpen={findOpen}
+              onCloseFind={() => setFindOpen(false)}
             />
           ) : (
             <EmptyState
@@ -526,6 +549,7 @@ function App() {
         onSubmit={(v) => resolvePrompt(v)}
         onCancel={() => resolvePrompt(null)}
       />
+      <Cheatsheet open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 

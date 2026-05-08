@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { applyEdit, continueList, toggleHeading, toggleWrap } from '../editorOps';
 
 type Props = {
   value: string;
@@ -20,23 +21,60 @@ export function Editor({ value, onChange, onSave, resetKey }: Props) {
     el.focus();
   }, [resetKey]);
 
-  // Tab inserts two spaces — most users expect this in a markdown editor and
-  // the default tab-out-of-textarea behaviour breaks code-block formatting.
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+    const el = e.currentTarget;
+    const mod = e.metaKey || e.ctrlKey;
+    const state = { value: el.value, start: el.selectionStart, end: el.selectionEnd };
+
+    if (mod && e.key.toLowerCase() === 's') {
       e.preventDefault();
       onSave();
       return;
     }
+
+    // Bold / italic / inline code. Use shift-detection so Ctrl+B doesn't
+    // mistakenly fire when the user holds extra modifiers for some other
+    // shortcut (e.g. browser bookmark bar).
+    if (mod && !e.shiftKey && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === 'b') {
+        e.preventDefault();
+        applyEdit(el, toggleWrap(state, '**'), onChange);
+        return;
+      }
+      if (k === 'i') {
+        e.preventDefault();
+        applyEdit(el, toggleWrap(state, '*'), onChange);
+        return;
+      }
+      if (k === '`') {
+        e.preventDefault();
+        applyEdit(el, toggleWrap(state, '`'), onChange);
+        return;
+      }
+      if (k === '1' || k === '2' || k === '3') {
+        e.preventDefault();
+        applyEdit(el, toggleHeading(state, Number(k) as 1 | 2 | 3), onChange);
+        return;
+      }
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey && !mod) {
+      const result = continueList(state);
+      if (result) {
+        e.preventDefault();
+        applyEdit(el, result, onChange);
+        return;
+      }
+    }
+
     if (e.key === 'Tab') {
       e.preventDefault();
-      const el = e.currentTarget;
       const start = el.selectionStart;
       const end = el.selectionEnd;
       const inserted = '  ';
       const next = value.slice(0, start) + inserted + value.slice(end);
       onChange(next);
-      // Restore caret position after React re-renders.
       requestAnimationFrame(() => {
         el.selectionStart = el.selectionEnd = start + inserted.length;
       });
@@ -51,7 +89,7 @@ export function Editor({ value, onChange, onSave, resetKey }: Props) {
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={onKeyDown}
       spellCheck
-      placeholder="Start writing in markdown…"
+      placeholder="Start writing in markdown… (Ctrl+B bold, Ctrl+I italic, Ctrl+/ for help)"
     />
   );
 }
