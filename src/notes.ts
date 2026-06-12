@@ -28,7 +28,8 @@ export function deriveTitle(src: string, fallback: string) {
   return m ? m[1].trim() : fallback;
 }
 
-// First non-heading paragraph, trimmed for the sidebar preview.
+// First non-heading paragraph, trimmed for the sidebar preview. Strips
+// inline markdown so the preview reads as plain prose.
 export function derivePreview(src: string) {
   for (const line of src.split('\n')) {
     const t = line.trim();
@@ -36,7 +37,19 @@ export function derivePreview(src: string) {
     if (t.startsWith('#')) continue;
     if (t.startsWith('>')) continue;
     if (t.startsWith('```')) continue;
-    return t.replace(/[*_`]/g, '').slice(0, 160);
+    return t
+      // Inline image — drop the alt-text + url entirely.
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+      // Inline link — keep just the visible text.
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      // Reference-style link — keep visible text.
+      .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+      // Bold/italic/inline-code wrappers.
+      .replace(/[*_`]/g, '')
+      // Collapse whitespace runs.
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 160);
   }
   return '';
 }

@@ -15,6 +15,18 @@ const ACCENT_LIGHT = '#3a5fc8';
 const ACCENT_DARK = '#6a8fdf';
 const THEME_KEY = 'mdreader.theme';
 const WORKSPACE_KEY = 'mdreader.workspaceDir';
+const STARRED_KEY = 'mdreader.starredIds';
+
+function readStarredIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(STARRED_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
 
 type Theme = 'light' | 'dark';
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -51,6 +63,17 @@ function App() {
 
   const [helpOpen, setHelpOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
+  const [starredIds, setStarredIds] = useState<Set<string>>(() => readStarredIds());
+
+  const handleToggleStar = useCallback((id: string) => {
+    setStarredIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try { localStorage.setItem(STARRED_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
 
   const [prompt, setPrompt] = useState<PromptKind | null>(null);
   // The pending action a Prompt resolves to. Modal-based UI doesn't compose
@@ -207,7 +230,8 @@ function App() {
     // Place the new file in the currently-filtered folder when one is
     // selected; otherwise drop it in the workspace root (Inbox).
     const inSubfolder = folder !== 'All' && folder !== '' && folder !== 'Opened' && workspace.folders.includes(folder);
-    const targetDir = inSubfolder ? `${workspace.dir}\\${folder}` : workspace.dir;
+    const sep = workspace.dir.includes('\\') ? '\\' : '/';
+    const targetDir = inSubfolder ? `${workspace.dir}${sep}${folder}` : workspace.dir;
     try {
       const created = await electron.workspace.createFile(targetDir, filename, '');
       const note = fileToNote({ ...created, folder: inSubfolder ? folder : '' });
@@ -267,7 +291,8 @@ function App() {
       });
       if (ok === null) return;
       try {
-        await electron.workspace.deleteFolder(`${workspace.dir}\\${folderName}`);
+        const sep = workspace.dir.includes('\\') ? '\\' : '/';
+        await electron.workspace.deleteFolder(`${workspace.dir}${sep}${folderName}`);
         // Drop any open tabs / active id that referenced files in this folder.
         const removedIds = new Set(notes.filter((n) => n.folder === folderName).map((n) => n.id));
         if (removedIds.size) {
@@ -330,7 +355,11 @@ function App() {
   );
 
   // ── Edit-mode draft state ───────────────────────────────────────────────
-  const note = useMemo(() => notes.find((n) => n.id === activeId) ?? null, [notes, activeId]);
+  const note = useMemo(() => {
+    const found = notes.find((n) => n.id === activeId) ?? null;
+    if (!found) return null;
+    return starredIds.has(found.id) ? { ...found, starred: true } : found;
+  }, [notes, activeId, starredIds]);
 
   // Whenever the user switches notes or toggles edit mode on, sync the draft
   // from the on-disk body so we don't show stale text from the previous file.
@@ -370,6 +399,14 @@ function App() {
     const t = setTimeout(saveDraft, 600);
     return () => clearTimeout(t);
   }, [draft, editing, note?.path, note?.body, saveDraft]);
+
+  // Drop the "Saved" badge after a beat so the meta row stops looking
+  // permanently mid-save. Errors stay visible until the next edit.
+  useEffect(() => {
+    if (saveStatus !== 'saved') return;
+    const t = setTimeout(() => setSaveStatus('idle'), 1400);
+    return () => clearTimeout(t);
+  }, [saveStatus]);
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
   useEffect(() => {
@@ -430,6 +467,13 @@ function App() {
     findOpen,
   ]);
 
+  // Project the star map onto notes so the Sidebar/Reader can read it as a
+  // single field. Done lazily here to keep starredIds the source of truth.
+  const decoratedNotes = useMemo(
+    () => notes.map((n) => (starredIds.has(n.id) ? { ...n, starred: true } : n)),
+    [notes, starredIds]
+  );
+
   // ── Folder list for sidebar ─────────────────────────────────────────────
   const folderEntries: FolderEntry[] = useMemo(() => {
     const inboxCount = notes.filter((n) => n.folder === '').length;
@@ -469,7 +513,7 @@ function App() {
     else if (id === activeId) setActiveId(null);
   };
 
-  const titleText = note?.title ?? (workspace ? 'mdreader' : 'mdreader');
+  const titleText = note?.title ?? (workspace ? workspace.dir.split(/[\\/]/).filter(Boolean).pop() ?? 'mdreader' : 'No file open');
   const canEdit = !!note?.path && inElectron;
 
   const reader = (
@@ -491,7 +535,7 @@ function App() {
       <div className="rd-body">
         {!focused && (
           <Sidebar
-            notes={notes}
+            notes={decoratedNotes}
             folders={folderEntries}
             totalCount={notes.length}
             activeId={activeId}
@@ -501,15 +545,17 @@ function App() {
             folder={folder}
             onFolder={setFolder}
             hasWorkspace={!!workspace}
+            inElectron={inElectron}
             onNewFile={handleNewFile}
             onNewFolder={handleNewFolder}
             onCloseNote={handleCloseNote}
             onDeleteNote={handleDeleteNote}
             onDeleteFolder={handleDeleteFolder}
+            onToggleStar={handleToggleStar}
           />
         )}
         <div className="rd-content">
-          {!focused && (
+          {!focused && tabs.length > 0 && (
             <Tabs
               tabs={tabs}
               activeId={activeId ?? ''}
@@ -532,6 +578,7 @@ function App() {
               saveStatus={saveStatus}
               findOpen={findOpen}
               onCloseFind={() => setFindOpen(false)}
+              onToggleStar={() => handleToggleStar(note.id)}
             />
           ) : (
             <EmptyState

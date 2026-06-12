@@ -28,6 +28,7 @@ function collectFilesFromArgv(argv) {
 collectFilesFromArgv(process.argv);
 
 function createWindow() {
+  const isWin = process.platform === 'win32';
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -37,9 +38,10 @@ function createWindow() {
     frame: false,
     titleBarStyle: 'hidden',
     // Windows 11 Mica — translucent window backdrop that blends with the
-    // user's wallpaper. Falls back gracefully on older Windows / non-Win11.
-    backgroundMaterial: 'mica',
-    backgroundColor: '#00000000',
+    // user's wallpaper. Only set on Windows; on macOS/Linux this property
+    // is silently dropped on most builds but has caused init crashes in
+    // headless WSLg, so gate it.
+    ...(isWin ? { backgroundMaterial: 'mica', backgroundColor: '#00000000' } : { backgroundColor: '#f3f5f8' }),
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,

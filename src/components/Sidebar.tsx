@@ -31,16 +31,19 @@ type Props = {
   folder: string;        // 'All' | '' (Inbox) | <subdir name> | 'Opened'
   onFolder: (f: string) => void;
   hasWorkspace: boolean;
+  inElectron: boolean;
 
   onNewFile: () => void;
   onNewFolder: () => void;
   onCloseNote: (id: string) => void;
   onDeleteNote: (note: Note) => void;
   onDeleteFolder: (folderName: string) => void;
+  onToggleStar: (id: string) => void;
 };
 
 const ALL = 'All';
 const INBOX = '';
+const STARRED = '__starred__';
 
 export function Sidebar({
   notes,
@@ -53,17 +56,21 @@ export function Sidebar({
   folder,
   onFolder,
   hasWorkspace,
+  inElectron,
   onNewFile,
   onNewFolder,
   onCloseNote,
   onDeleteNote,
   onDeleteFolder,
+  onToggleStar,
 }: Props) {
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     return notes.filter((n) => {
       if (folder === ALL) {
         // include everything
+      } else if (folder === STARRED) {
+        if (!n.starred) return false;
       } else if (folder === INBOX) {
         // workspace-root files only — anything with a subfolder or 'Opened' is filtered out
         if (n.folder !== '') return false;
@@ -107,22 +114,39 @@ export function Sidebar({
           value={query}
           onChange={(e) => onQuery(e.target.value)}
         />
-        <span className="rd-search-kbd">⌘K</span>
+        <span className="rd-search-kbd">Ctrl+K</span>
       </div>
 
+      <div className="rd-side-actions-label">New</div>
       <div className="rd-side-actions">
-        <button className="rd-side-action" onClick={onNewFile} disabled={!hasWorkspace}>
+        <button
+          className="rd-side-action"
+          onClick={onNewFile}
+          disabled={!hasWorkspace}
+          title={hasWorkspace ? 'Create a new note (Ctrl+N)' : inElectron ? 'Open a notes folder first' : 'New note requires the desktop app'}
+        >
           <FilePlusIcon />
-          <span>New note</span>
+          <span>Note</span>
         </button>
-        <button className="rd-side-action" onClick={onNewFolder} disabled={!hasWorkspace}>
+        <button
+          className="rd-side-action"
+          onClick={onNewFolder}
+          disabled={!hasWorkspace}
+          title={hasWorkspace ? 'Create a new folder (Ctrl+Shift+N)' : inElectron ? 'Open a notes folder first' : 'New folder requires the desktop app'}
+        >
           <FolderPlusIcon />
-          <span>New folder</span>
+          <span>Folder</span>
         </button>
       </div>
 
       <div className="rd-folders">
         {folderRow(ALL, 'All', totalCount, <OutlineIcon />, false)}
+        {(() => {
+          const starredCount = notes.filter((n) => n.starred).length;
+          return starredCount > 0
+            ? folderRow(STARRED, 'Starred', starredCount, <StarIcon filled />, false)
+            : null;
+        })()}
         {folders.map((f) =>
           f.name === INBOX
             ? folderRow(INBOX, 'Inbox', f.count, <InboxIcon />, false)
@@ -164,6 +188,17 @@ export function Sidebar({
             <div className="rd-noteitem-actions">
               <button
                 className="rd-noteitem-action"
+                title={n.starred ? 'Unstar' : 'Star'}
+                data-starred={n.starred ? '1' : '0'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleStar(n.id);
+                }}
+              >
+                <StarIcon filled={n.starred} />
+              </button>
+              <button
+                className="rd-noteitem-action"
                 title="Close note"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -187,13 +222,19 @@ export function Sidebar({
             </div>
           </div>
         ))}
-        {filtered.length === 0 && hasWorkspace && (
+        {filtered.length === 0 && (
           <div className="rd-notelist-empty">
             {query
               ? 'No notes match your search.'
-              : folder === ALL
-                ? 'No notes yet — create one with the button above.'
-                : 'This folder is empty.'}
+              : folder === STARRED
+                ? 'No starred notes — click the star on any note to pin it here.'
+                : !hasWorkspace && !inElectron
+                  ? 'No notes here yet. Press Ctrl+O to open a markdown file.'
+                  : !hasWorkspace
+                    ? 'No notes here yet. Open a notes folder to get started.'
+                    : folder === ALL
+                      ? 'No notes yet — create one with the button above.'
+                      : 'This folder is empty.'}
           </div>
         )}
       </div>

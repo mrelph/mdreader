@@ -6,6 +6,7 @@ import { buildToc, readingMinutes, wordCount } from '../notes';
 import { Outline } from './Outline';
 import { Editor } from './Editor';
 import { FindBar } from './FindBar';
+import { StarIcon } from '../icons';
 
 type Props = {
   note: Note;
@@ -17,6 +18,7 @@ type Props = {
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   findOpen: boolean;
   onCloseFind: () => void;
+  onToggleStar: () => void;
 };
 
 export function Reader({
@@ -29,6 +31,7 @@ export function Reader({
   saveStatus,
   findOpen,
   onCloseFind,
+  onToggleStar,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
@@ -160,6 +163,15 @@ export function Reader({
                   <span data-status={saveStatus}>{saveText}</span>
                 </>
               )}
+              <button
+                type="button"
+                className="rd-article-star"
+                data-starred={note.starred ? '1' : '0'}
+                title={note.starred ? 'Unstar' : 'Star this note'}
+                onClick={onToggleStar}
+              >
+                <StarIcon filled={note.starred} />
+              </button>
             </div>
           </header>
 
@@ -174,6 +186,19 @@ export function Reader({
                     h1: headingRenderer('h1'),
                     h2: headingRenderer('h2'),
                     h3: headingRenderer('h3'),
+                    a: ({ href, children, ...rest }) => {
+                      const isExternal = !!href && /^(https?:|mailto:)/i.test(href);
+                      return (
+                        <a
+                          {...rest}
+                          href={href}
+                          target={isExternal ? '_blank' : undefined}
+                          rel={isExternal ? 'noopener noreferrer' : undefined}
+                        >
+                          {children}
+                        </a>
+                      );
+                    },
                   }}
                 >
                   {note.body}
