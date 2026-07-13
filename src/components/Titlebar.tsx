@@ -14,6 +14,7 @@ type Props = {
   onToggleEdit: () => void;
   onToggleHelp: () => void;
   helpOpen: boolean;
+  maximized: boolean;
 };
 
 export function Titlebar({
@@ -29,6 +30,7 @@ export function Titlebar({
   onToggleEdit,
   onToggleHelp,
   helpOpen,
+  maximized,
 }: Props) {
   const electron = getElectron();
   const onMin = electron ? () => electron.window.minimize() : undefined;
@@ -80,7 +82,13 @@ export function Titlebar({
         <button className="rd-win rd-win-min" title="Minimize" onClick={onMin} disabled={!onMin}>
           <span />
         </button>
-        <button className="rd-win rd-win-max" title="Maximize" onClick={onMax} disabled={!onMax}>
+        <button
+          className="rd-win rd-win-max"
+          title={maximized ? 'Restore' : 'Maximize'}
+          onClick={onMax}
+          disabled={!onMax}
+          data-maximized={maximized ? '1' : '0'}
+        >
           <span />
         </button>
         <button className="rd-win rd-win-close" title="Close" onClick={onClose} disabled={!onClose}>

@@ -150,6 +150,24 @@
   height: 8px;
   border: 1px solid currentColor;
   border-radius: 1px;
+  position: relative;
+}
+/* Maximized → "restore" glyph: front square plus an offset back square,
+   the classic two-overlapping-windows mark. */
+.rd-win-max[data-maximized='1'] span {
+  width: 7px;
+  height: 7px;
+  transform: translate(-1px, 1px);
+}
+.rd-win-max[data-maximized='1'] span::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-radius: 1px;
 }
 .rd-win-close:hover {
   background: #e35044;

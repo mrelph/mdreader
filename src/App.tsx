@@ -63,6 +63,7 @@ function App() {
 
   const [helpOpen, setHelpOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
+  const [maximized, setMaximized] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(() => readStarredIds());
 
   const handleToggleStar = useCallback((id: string) => {
@@ -91,6 +92,14 @@ function App() {
       /* ignore */
     }
   }, [theme, inElectron]);
+
+  // ── Track the native maximize state so the titlebar can show a restore
+  //    glyph. The main process emits 'window:maximized' on every toggle. ────
+  useEffect(() => {
+    if (!electron) return;
+    void electron.window.isMaximized().then(setMaximized);
+    return electron.window.onMaximizedChange(setMaximized);
+  }, [electron]);
 
   // ── Promise-style prompt helper ─────────────────────────────────────────
   const askPrompt = useCallback((kind: PromptKind): Promise<string | null> => {
@@ -531,6 +540,7 @@ function App() {
         onToggleEdit={() => setEditing((v) => !v)}
         onToggleHelp={() => setHelpOpen((v) => !v)}
         helpOpen={helpOpen}
+        maximized={maximized}
       />
       <div className="rd-body">
         {!focused && (

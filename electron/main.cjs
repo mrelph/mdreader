@@ -35,8 +35,14 @@ function createWindow() {
     minWidth: 640,
     minHeight: 420,
     show: false,
-    frame: false,
+    // Custom title bar. On Windows, `titleBarStyle: 'hidden'` alone hides the
+    // bar while KEEPING the native resize borders, Aero Snap, and correct
+    // maximize/restore geometry — `frame: false` would strip all of that and
+    // break edge-resize + leave the window clipped/stuck after un-maximizing.
+    // On macOS/Linux frameless windows stay resizable, and `frame: false` is
+    // what hides the traffic-light buttons there, so keep it off-Windows.
     titleBarStyle: 'hidden',
+    ...(isWin ? {} : { frame: false }),
     // Windows 11 Mica — translucent window backdrop that blends with the
     // user's wallpaper. Only set on Windows; on macOS/Linux this property
     // is silently dropped on most builds but has caused init crashes in
