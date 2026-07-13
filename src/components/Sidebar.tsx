@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Note } from '../types';
+import type { Note, SortMode } from '../types';
 import {
   FilePlusIcon,
   FolderIcon,
@@ -12,7 +12,8 @@ import {
   TabCloseIcon,
   TrashIcon,
 } from '../icons';
-import { readingMinutes } from '../notes';
+import { readingMinutes, wordCount } from '../notes';
+import { extractTags } from '../tags';
 
 export type FolderEntry = {
   name: string;          // '' = Inbox
@@ -41,6 +42,10 @@ type Props = {
   onRenameNote: (note: Note) => void;
   onDeleteFolder: (folderName: string) => void;
   onToggleStar: (id: string) => void;
+  sortMode: SortMode;
+  onSortMode: (mode: SortMode) => void;
+  activeTag: string | null;
+  onTag: (tag: string | null) => void;
 };
 
 // Pull a short context snippet around the first body match so full-text hits
@@ -77,10 +82,26 @@ export function Sidebar({
   onRenameNote,
   onDeleteFolder,
   onToggleStar,
+  sortMode,
+  onSortMode,
+  activeTag,
+  onTag,
 }: Props) {
   const q = query.trim().toLowerCase();
+
+  // Build a tag index across all notes for the tag bar.
+  const tagIndex = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of notes) {
+      for (const tag of extractTags(n.body)) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [notes]);
+
   const filtered = useMemo(() => {
-    return notes.filter((n) => {
+    const list = notes.filter((n) => {
       if (folder === ALL) {
         // include everything
       } else if (folder === STARRED) {
@@ -89,6 +110,8 @@ export function Sidebar({
         // workspace-root files only — anything with a subfolder or 'Opened' is filtered out
         if (n.folder !== '') return false;
       } else if (n.folder !== folder) return false;
+      // Tag filter
+      if (activeTag && !extractTags(n.body).includes(activeTag)) return false;
       if (q === '') return true;
       // Full-text: title, preview, and the note body.
       return (
@@ -97,7 +120,25 @@ export function Sidebar({
         n.body.toLowerCase().includes(q)
       );
     });
-  }, [notes, folder, q]);
+    // Sort
+    switch (sortMode) {
+      case 'alpha':
+        list.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'created':
+        // Use mtime as proxy — notes without mtime fall to the end.
+        list.sort((a, b) => (a.mtime ?? 0) - (b.mtime ?? 0));
+        break;
+      case 'words':
+        list.sort((a, b) => wordCount(b.body) - wordCount(a.body));
+        break;
+      case 'modified':
+      default:
+        list.sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0));
+        break;
+    }
+    return list;
+  }, [notes, folder, q, activeTag, sortMode]);
 
   const folderRow = (key: string, label: string, count: number, icon: React.ReactNode, deletable: boolean) => (
     <div key={key} className="rd-folder-row" data-active={folder === key ? '1' : '0'}>
@@ -175,9 +216,48 @@ export function Sidebar({
         )}
       </div>
 
+      {tagIndex.size > 0 && (
+        <div className="rd-tags">
+          {[...tagIndex.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 20)
+            .map(([tag, count]) => (
+              <button
+                key={tag}
+                className="rd-tag"
+                data-active={activeTag === tag ? '1' : '0'}
+                onClick={() => onTag(activeTag === tag ? null : tag)}
+                title={`Filter by #${tag}`}
+              >
+                #{tag}
+                <span className="rd-tag-count">{count}</span>
+              </button>
+            ))}
+          {activeTag && (
+            <button className="rd-tag" onClick={() => onTag(null)} title="Clear tag filter">
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="rd-sort">
+        <span>Sort:</span>
+        <select
+          value={sortMode}
+          onChange={(e) => onSortMode(e.target.value as SortMode)}
+        >
+          <option value="modified">Modified</option>
+          <option value="alpha">A → Z</option>
+          <option value="created">Oldest first</option>
+          <option value="words">Word count</option>
+        </select>
+      </div>
+
       <div className="rd-side-head">
         <span>
           {filtered.length} note{filtered.length === 1 ? '' : 's'}
+          {activeTag && <> tagged <strong>#{activeTag}</strong></>}
         </span>
       </div>
 

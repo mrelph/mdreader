@@ -33,3 +33,5 @@ export type Workspace = {
   // (workspace root) is not in this list.
   folders: string[];
 };
+
+export type SortMode = 'modified' | 'alpha' | 'created' | 'words';

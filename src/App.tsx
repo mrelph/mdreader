@@ -7,16 +7,18 @@ import { EmptyState } from './components/EmptyState';
 import { Prompt, type PromptKind } from './components/Prompt';
 import { Cheatsheet } from './components/Cheatsheet';
 import { UpdateBanner } from './components/UpdateBanner';
+import { QuickSwitcher } from './components/QuickSwitcher';
 import { fileToNote } from './notes';
 import { openMarkdownFile } from './openFile';
 import { getElectron } from './electron';
-import type { Note, Tab, Workspace } from './types';
+import type { Note, SortMode, Tab, Workspace } from './types';
 
 const ACCENT_LIGHT = '#3a5fc8';
 const ACCENT_DARK = '#6a8fdf';
 const THEME_KEY = 'mdreader.theme';
 const WORKSPACE_KEY = 'mdreader.workspaceDir';
 const STARRED_KEY = 'mdreader.starredIds';
+const SORT_KEY = 'mdreader.sortMode';
 
 function readStarredIds(): Set<string> {
   try {
@@ -64,8 +66,22 @@ function App() {
 
   const [helpOpen, setHelpOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
+  const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const [starredIds, setStarredIds] = useState<Set<string>>(() => readStarredIds());
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    try {
+      const v = localStorage.getItem(SORT_KEY);
+      if (v === 'modified' || v === 'alpha' || v === 'created' || v === 'words') return v;
+    } catch { /* ignore */ }
+    return 'modified';
+  });
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+
+  const handleSortMode = useCallback((mode: SortMode) => {
+    setSortMode(mode);
+    try { localStorage.setItem(SORT_KEY, mode); } catch { /* ignore */ }
+  }, []);
 
   const handleToggleStar = useCallback((id: string) => {
     setStarredIds((prev) => {
@@ -581,6 +597,9 @@ function App() {
       } else if (mod && e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         if (workspace) void handleNewFolder();
+      } else if (mod && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setQuickSwitcherOpen((v) => !v);
       } else if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         const input = document.querySelector<HTMLInputElement>('.rd-search-input');
@@ -598,7 +617,9 @@ function App() {
         e.preventDefault();
         setFindOpen(true);
       } else if (e.key === 'Escape') {
-        if (helpOpen) {
+        if (quickSwitcherOpen) {
+          setQuickSwitcherOpen(false);
+        } else if (helpOpen) {
           setHelpOpen(false);
         } else if (findOpen) {
           setFindOpen(false);
@@ -621,6 +642,7 @@ function App() {
     inElectron,
     helpOpen,
     findOpen,
+    quickSwitcherOpen,
   ]);
 
   // Project the star map onto notes so the Sidebar/Reader can read it as a
@@ -711,6 +733,10 @@ function App() {
             onRenameNote={handleRenameNote}
             onDeleteFolder={handleDeleteFolder}
             onToggleStar={handleToggleStar}
+            sortMode={sortMode}
+            onSortMode={handleSortMode}
+            activeTag={activeTag}
+            onTag={setActiveTag}
           />
         )}
         <div className="rd-content">
@@ -754,6 +780,12 @@ function App() {
         open={prompt}
         onSubmit={(v) => resolvePrompt(v)}
         onCancel={() => resolvePrompt(null)}
+      />
+      <QuickSwitcher
+        open={quickSwitcherOpen}
+        onClose={() => setQuickSwitcherOpen(false)}
+        notes={decoratedNotes}
+        onSelect={handleSelect}
       />
       <Cheatsheet open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
