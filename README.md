@@ -1,28 +1,73 @@
 # mdreader
 
-A clean, modern markdown reader for **Windows**, built around the Mica / soft-tinted direction (C) of the original design. Translucent panels float over the real Windows 11 desktop wallpaper, with a folder-organised sidebar, tabbed notes, an in-page outline, and a distraction-free focus mode.
+A fast, modern markdown reader and lightweight note-taker for **Windows**. File-system-based, workspace-oriented, with wikilinks, tags, syntax highlighting, and a distraction-free reading experience.
 
-Runs as a native-feeling Electron app on Windows, and also works as a plain web app.
+Built with Electron and the Windows 11 Mica backdrop — translucent panels over your real desktop wallpaper.
 
-## Run it
-
-### As a Windows app (Electron)
+## Quick start
 
 ```bash
 npm install
-npm run dev:electron
+npm run dev:electron    # Electron + hot-reload
 ```
 
-This starts Vite and launches Electron pointing at it. The app opens in a frameless Windows 11 window with Mica enabled; min/max/close are wired to the OS and the titlebar is draggable.
-
-### As a web app
+Or as a plain web app (no native features):
 
 ```bash
-npm install
-npm run dev
+npm run dev             # → http://localhost:5173
 ```
 
-Then open <http://localhost:5173>. The Electron-only features (folder open, real OS dialogs, native window controls) gracefully fall back to File System Access API + a hidden file input. The web build also paints a faux desktop wallpaper behind a rounded "window" so the design still reads.
+## Features
+
+### Reading
+
+- **GitHub-flavoured markdown** — tables, task lists, strikethrough, autolinks via remark-gfm.
+- **Syntax highlighting** — fenced code blocks auto-detect language and render with a theme-aware token palette (light + dark).
+- **Table of contents** — right-rail outline with scroll-spy; click any heading to jump.
+- **Reading progress** bar across the top.
+- **Focus mode** — `F11` or `Ctrl+.` hides everything except the note. `Esc` to exit.
+- **Find in note** — `Ctrl+F` opens a search bar with match highlighting and navigation.
+
+### Writing
+
+- **Edit mode** — `Ctrl+E` toggles a plain-text markdown editor with 600ms autosave.
+- **Formatting shortcuts** — Bold (`Ctrl+B`), italic (`Ctrl+I`), inline code (`` Ctrl+` ``), heading levels (`Ctrl+1/2/3`).
+- **List continuation** — `Enter` on a bullet/numbered/task-list item continues the list; `Enter` on an empty marker exits it.
+- **Conflict detection** — if a file changes on disk while you're editing (git pull, sync, another editor), you're prompted to Overwrite or Reload rather than silently clobbering.
+
+### Organisation
+
+- **Workspace folders** — `Ctrl+Shift+O` opens a folder; its subdirectories become sidebar sections.
+- **Quick switcher** — `Ctrl+P` opens a fuzzy-match palette over all note titles.
+- **Full-text search** — `Ctrl+K` searches titles, previews, and note bodies with context snippets.
+- **Tags** — `#tag` tokens in note bodies are parsed and displayed as clickable filter pills in the sidebar.
+- **Sort** — sidebar dropdown sorts by modified date, alphabetical, oldest first, or word count. Persisted.
+- **Stars** — mark notes as favourites; filter to starred-only in the sidebar.
+
+### Linking
+
+- **Wikilinks** — `[[Note Title]]` or `[[filename|display text]]` links between notes. Resolved links render in purple; click to navigate.
+- **Backlinks** — at the bottom of each note, see which other notes link to it (with a context snippet). Click to navigate.
+- **Unresolved links** — render red/dashed so you know what's missing.
+
+### Export
+
+- **PDF** — export the current note as a styled PDF (via the titlebar export menu).
+- **HTML** — export as a self-contained HTML file with inline styles.
+
+### System integration
+
+- **File association** — `.md` and `.markdown` files open in mdreader from Explorer (after install).
+- **Single instance** — opening a second `.md` file passes it to the running instance.
+- **Auto-update** — checks GitHub Releases on boot and every 4 hours. Download and restart from the in-app banner.
+- **Trash delete** — deleted notes go to the Recycle Bin, not permanent deletion.
+- **External change detection** — the workspace watches for file changes and auto-refreshes the sidebar.
+
+### Privacy
+
+- **Remote images gated** — images from `https://` URLs show a "Show image" placeholder until you click; prevents tracking pixels in shared notes.
+- **CSP** — Content Security Policy locks down script/style sources.
+- **No telemetry** — the app phones home only to GitHub for update checks.
 
 ## Build & package
 
@@ -35,55 +80,76 @@ npm run dist:win:msi       # → release/mdreader-x.y.z.msi
 npm run dist:win:portable  # → release/mdreader-x.y.z-portable.exe
 ```
 
-| Artifact | Size | Use it when… |
-|---|---|---|
-| `mdreader-x.y.z-portable.exe` | ~72 MB | You want a **single .exe**. No installation, no admin, no registry entries. Double-click and run. Self-extracts to `%LOCALAPPDATA%\Temp\mdreader-x.y.z` on first launch. Drop it on a USB stick if you like. |
-| `mdreader-x.y.z-setup.exe` (NSIS) | ~79 MB | You want a normal installer experience: Start Menu entry, desktop shortcut, uninstaller in Apps & Features, file associations for `.md` / `.markdown`. Per-user install, no admin needed. |
-| `mdreader-x.y.z.msi` | ~89 MB | You're deploying via **Group Policy / Intune / SCCM**, or your IT department wants an MSI. Same install experience as the NSIS but in MSI form. |
+| Artifact | Use case |
+|---|---|
+| `setup.exe` (NSIS) | Normal installer: Start Menu, desktop shortcut, uninstaller, file associations. Per-user, no admin. **Supports auto-update.** |
+| `.msi` | Enterprise deployment via Group Policy / Intune / SCCM. |
+| `portable.exe` | Single executable, no install. Self-extracts to temp. Good for USB sticks. |
 
-All three artifacts register `.md` / `.markdown` file associations so double-clicking a markdown file opens it in mdreader (the portable .exe needs to be run at least once first).
+All register `.md` / `.markdown` file associations.
 
-**WiX requirement:** the MSI target uses WiX Toolset 4.x. `electron-builder` auto-downloads it the first time, so you don't need to install it manually.
+## Publishing a release (auto-update)
 
-**Code signing:** none of these are signed by default — Windows SmartScreen will warn the first time. Provide a code-signing certificate via `CSC_LINK` + `CSC_KEY_PASSWORD` env vars to sign before distributing.
+1. Bump `version` in `package.json`.
+2. `npm run dist:win:nsis` — generates the installer and a `latest.yml` manifest.
+3. Create a GitHub Release tagged `vX.Y.Z`, upload the `.exe` and `latest.yml`.
+4. Installed copies detect the update within seconds of their next launch.
 
-## Features
+Code signing (`CSC_LINK` + `CSC_KEY_PASSWORD` env vars) suppresses SmartScreen warnings.
 
-- **Open any `.md`** — `Ctrl+O`, the open button in the titlebar / sidebar / tabs, or right-click a `.md` file → Open with → mdreader (after install).
-- **Open a folder of notes** — `Ctrl+Shift+O` (Electron only). Replaces the seeded sample notes with the directory's contents, sorted newest first.
-- **GitHub-flavoured markdown** via `react-markdown` + `remark-gfm` (tables, task lists, strikethrough, autolinks).
-- **Focus mode** — `F11` or `Ctrl+.` hides the sidebar, tabs, and outline. `Esc` exits.
-- **Reading progress** bar and **scroll-spy outline** on the right rail; clicking an outline entry jumps to that heading.
-- **Theme** — light / dark, toggled from the titlebar. Persisted to `localStorage` and follows OS preference on first launch.
-- **Search** — `Ctrl+K` to focus, filters by title or preview.
-- **File-association launches** — opening a `.md` with mdreader from File Explorer adds it to the open tabs even if mdreader is already running (single-instance).
+## Testing
+
+```bash
+npm test              # run all tests once
+npm run test:watch    # watch mode
+```
+
+56 tests cover pure logic: editor operations (bold/italic/heading toggles, list continuation), notes helpers (frontmatter stripping, slugify, TOC, word count), tag extraction, and wikilink resolution.
 
 ## Project layout
 
 ```
 electron/
-  main.cjs              main process: BrowserWindow (frameless + Mica), IPC, file dialogs
-  preload.cjs           contextBridge → window.electron API
+  main.cjs              main process: window, IPC, file ops, updater, watcher, export
+  preload.cjs           contextBridge → window.electron typed API
 src/
-  App.tsx               app shell, state, keyboard shortcuts, electron/web branching
+  App.tsx               app shell, state management, keyboard shortcuts
   components/
-    Titlebar.tsx        custom Windows-style titlebar; window controls when in Electron
-    Sidebar.tsx         folders + note list + search
-    Tabs.tsx            open notes
-    Reader.tsx          markdown view, progress, scroll-spy outline
-    Outline.tsx         right-rail TOC
+    Backlinks.tsx       backlinks panel (which notes link here?)
+    Cheatsheet.tsx      keyboard shortcut overlay (Ctrl+/)
+    Editor.tsx          textarea with formatting shortcuts + list continuation
+    EmptyState.tsx      placeholder when no note is open
+    ExportMenu.tsx      PDF/HTML export dropdown
+    FindBar.tsx         in-note search with match navigation
+    Outline.tsx         right-rail table of contents
+    Prompt.tsx          modal dialog (input / confirm)
+    QuickSwitcher.tsx   Ctrl+P fuzzy note palette
+    Reader.tsx          markdown renderer with wikilinks + backlinks
+    Sidebar.tsx         folders, tags, sort, note list, search
+    Tabs.tsx            open-note tabs
+    Titlebar.tsx        custom titlebar with window controls + export
+    UpdateBanner.tsx    auto-update notification bar
+  editorOps.ts          pure editor helpers (toggleWrap, toggleHeading, continueList)
+  electron.ts           typed window.electron wrapper (null in browser)
+  icons.tsx             SVG icon components
+  main.tsx              React entry point
+  notes.ts              frontmatter, TOC, slugify, word count, fileToNote
+  openFile.ts           file-open abstraction (Electron → File System Access → input)
+  tags.ts               #tag extraction + index builder
+  types.ts              Note, Tab, TocEntry, Workspace, SortMode
+  wikilinks.ts          [[wikilink]] parsing, resolution, replacement
   styles/
-    app.css             page shell + faux desktop wallpaper (web only)
-    reader.css          Direction C (Mica) tokens + reader chrome
-  electron.ts           typed window.electron wrapper (returns null in browser)
-  icons.tsx             SVG icon set
-  notes.ts              sample journal seed + TOC/word-count helpers
-  openFile.ts           Electron IPC dialog → File System Access API → input fallback
-  types.ts              Note, Tab, TocEntry types
+    app.css             page shell + faux desktop (web mode)
+    reader.css          full component styles + theme tokens
 ```
 
-## Notes on the design
+## Design notes
 
-The window chrome is custom (`frame: false`) because the Mica look needs control of the titlebar. Drag is provided by `-webkit-app-region: drag` on the titlebar; the buttons opt out via `no-drag`. On Windows 11 the OS draws the rounded corners and the Mica backdrop; older Windows falls back to a flat fill.
+- **Custom titlebar** — `titleBarStyle: 'hidden'` on Windows keeps native resize borders and Aero Snap; `frame: false` on macOS/Linux hides the traffic lights.
+- **Mica** — `backgroundMaterial: 'mica'` on Windows 11 build 22000+. Falls back to an opaque fill on Windows 10.
+- **Theming** — all colours are CSS custom properties (`--rd-*`), switched by `[data-theme='dark']` on the root element.
+- **No database** — state lives in the filesystem (workspace folder) and localStorage (theme, sort, stars). Portable and sync-friendly.
 
-`backgroundMaterial: 'mica'` requires Windows 11 build 22000+. On Windows 10 the window will look slightly more opaque but still works correctly.
+## License
+
+ISC
