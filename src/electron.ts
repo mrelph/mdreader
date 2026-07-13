@@ -24,12 +24,13 @@ export type ElectronAPI = {
 
   workspace: {
     list: (dir: string) => Promise<ElectronWorkspace | null>;
-    writeFile: (path: string, content: string) => Promise<ElectronFile>;
+    writeFile: (path: string, content: string, baseMtime?: number) => Promise<ElectronFile>;
     createFile: (dir: string, filename: string, content?: string) => Promise<ElectronFile>;
     createFolder: (parentDir: string, folderName: string) => Promise<{ path: string; name: string }>;
     deleteFile: (path: string) => Promise<true>;
     deleteFolder: (path: string) => Promise<true>;
     rename: (oldPath: string, newPath: string) => Promise<true>;
+    onChanged: (cb: () => void) => () => void;
   };
 
   window: {
@@ -41,7 +42,23 @@ export type ElectronAPI = {
   };
 
   onOpenFilePath: (cb: (path: string) => void) => () => void;
+
+  updater: {
+    check: () => Promise<UpdateStatus>;
+    download: () => Promise<void>;
+    install: () => void;
+    onStatus: (cb: (status: UpdateStatus) => void) => () => void;
+  };
 };
+
+export type UpdateStatus =
+  | { state: 'checking' }
+  | { state: 'available'; version: string; releaseNotes?: string | null }
+  | { state: 'up-to-date' }
+  | { state: 'downloading'; percent: number }
+  | { state: 'ready'; version: string }
+  | { state: 'error'; message: string }
+  | { state: 'dev' };
 
 declare global {
   interface Window {

@@ -6,6 +6,7 @@ import {
   FolderPlusIcon,
   InboxIcon,
   OutlineIcon,
+  PencilIcon,
   SearchIcon,
   StarIcon,
   TabCloseIcon,
@@ -37,9 +38,21 @@ type Props = {
   onNewFolder: () => void;
   onCloseNote: (id: string) => void;
   onDeleteNote: (note: Note) => void;
+  onRenameNote: (note: Note) => void;
   onDeleteFolder: (folderName: string) => void;
   onToggleStar: (id: string) => void;
 };
+
+// Pull a short context snippet around the first body match so full-text hits
+// show *why* they matched, not just the note title. Returns null when the
+// query only matched the title/preview (which are already visible).
+function bodySnippet(body: string, q: string): string | null {
+  const idx = body.toLowerCase().indexOf(q);
+  if (idx === -1) return null;
+  const start = Math.max(0, idx - 30);
+  const raw = body.slice(start, idx + q.length + 40).replace(/\s+/g, ' ').trim();
+  return (start > 0 ? '…' : '') + raw + '…';
+}
 
 const ALL = 'All';
 const INBOX = '';
@@ -61,11 +74,12 @@ export function Sidebar({
   onNewFolder,
   onCloseNote,
   onDeleteNote,
+  onRenameNote,
   onDeleteFolder,
   onToggleStar,
 }: Props) {
+  const q = query.trim().toLowerCase();
   const filtered = useMemo(() => {
-    const q = query.toLowerCase();
     return notes.filter((n) => {
       if (folder === ALL) {
         // include everything
@@ -76,9 +90,14 @@ export function Sidebar({
         if (n.folder !== '') return false;
       } else if (n.folder !== folder) return false;
       if (q === '') return true;
-      return n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q);
+      // Full-text: title, preview, and the note body.
+      return (
+        n.title.toLowerCase().includes(q) ||
+        n.preview.toLowerCase().includes(q) ||
+        n.body.toLowerCase().includes(q)
+      );
     });
-  }, [notes, folder, query]);
+  }, [notes, folder, q]);
 
   const folderRow = (key: string, label: string, count: number, icon: React.ReactNode, deletable: boolean) => (
     <div key={key} className="rd-folder-row" data-active={folder === key ? '1' : '0'}>
@@ -163,7 +182,16 @@ export function Sidebar({
       </div>
 
       <div className="rd-notelist">
-        {filtered.map((n) => (
+        {filtered.map((n) => {
+          // Show a body snippet only when the query matched the body but not
+          // the already-visible title/preview.
+          const snippet =
+            q &&
+            !n.title.toLowerCase().includes(q) &&
+            !n.preview.toLowerCase().includes(q)
+              ? bodySnippet(n.body, q)
+              : null;
+          return (
           <div
             key={n.id}
             className="rd-noteitem"
@@ -178,7 +206,7 @@ export function Sidebar({
                   </span>
                 )}
               </div>
-              <div className="rd-noteitem-preview">{n.preview}</div>
+              <div className="rd-noteitem-preview">{snippet ?? n.preview}</div>
               <div className="rd-noteitem-meta">
                 <span>{n.date}</span>
                 <span className="rd-noteitem-dot">·</span>
@@ -197,6 +225,18 @@ export function Sidebar({
               >
                 <StarIcon filled={n.starred} />
               </button>
+              {n.path && (
+                <button
+                  className="rd-noteitem-action"
+                  title="Rename file"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRenameNote(n);
+                  }}
+                >
+                  <PencilIcon />
+                </button>
+              )}
               <button
                 className="rd-noteitem-action"
                 title="Close note"
@@ -221,7 +261,8 @@ export function Sidebar({
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && (
           <div className="rd-notelist-empty">
             {query

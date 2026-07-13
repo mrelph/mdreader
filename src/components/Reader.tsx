@@ -1,12 +1,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 import type { Note, TocEntry } from '../types';
-import { buildToc, readingMinutes, wordCount } from '../notes';
+import { buildToc, makeSlugger, readingMinutes, stripFrontmatter, wordCount } from '../notes';
 import { Outline } from './Outline';
 import { Editor } from './Editor';
 import { FindBar } from './FindBar';
 import { StarIcon } from '../icons';
+
+// Remote images are gated behind a click so a shared note can't phone home
+// (tracking pixels / read receipts) the moment it's opened. Local and data:
+// images render inline as normal.
+function GatedImage({
+  src,
+  alt,
+  title,
+}: {
+  src?: string;
+  alt?: string;
+  title?: string;
+}) {
+  const isRemote = typeof src === 'string' && /^https?:/i.test(src);
+  const [show, setShow] = useState(!isRemote);
+  if (isRemote && !show) {
+    return (
+      <button type="button" className="rd-img-gate" onClick={() => setShow(true)} title={src}>
+        <span className="rd-img-gate-label">Show image</span>
+        <span className="rd-img-gate-src">{alt || src}</span>
+      </button>
+    );
+  }
+  return <img src={src} alt={alt} title={title} />;
+}
+
+// Flatten a heading's rendered children back to plain text so we can derive
+// the same slug the TOC uses. react-markdown hands headings React nodes, not
+// the raw source, so we walk them.
+function nodeText(node: React.ReactNode): string {
+  if (node == null || node === false) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join('');
+  if (typeof node === 'object' && 'props' in node) {
+    return nodeText((node as { props: { children?: React.ReactNode } }).props.children);
+  }
+  return '';
+}
 
 type Props = {
   note: Note;
@@ -37,7 +76,13 @@ export function Reader({
   const [progress, setProgress] = useState(0);
   const [activeIdx, setActiveIdx] = useState(0);
 
-  const sourceText = editing ? draft : note.body;
+  // The rendered/read view drops any YAML frontmatter block; the editor keeps
+  // the raw text so the user can see and edit it.
+  const renderText = useMemo(() => stripFrontmatter(note.body), [note.body]);
+  // Text the find-bar and outline reason about: the draft while editing, the
+  // rendered (frontmatter-stripped) text while reading, so match offsets line
+  // up with what's on screen.
+  const sourceText = editing ? draft : renderText;
   const toc: TocEntry[] = useMemo(() => buildToc(sourceText), [sourceText]);
   const minutes = readingMinutes(sourceText);
   const words = wordCount(sourceText);
@@ -84,14 +129,17 @@ export function Reader({
     }
   };
 
-  const headingState = { idx: 0 };
+  // Build one slugger per render pass. Because react-markdown renders headings
+  // in document order, this produces exactly the ids buildToc computed, so the
+  // outline's jump targets always resolve. The idx counter feeds scroll-spy.
+  const slug = makeSlugger();
+  let headingIdx = 0;
   const headingRenderer =
     (Tag: 'h1' | 'h2' | 'h3') =>
     ({ children }: { children?: React.ReactNode }) => {
-      const idx = headingState.idx;
-      headingState.idx += 1;
+      const idx = headingIdx++;
       return (
-        <Tag id={`h${idx}`} data-heading-idx={idx}>
+        <Tag id={slug(nodeText(children))} data-heading-idx={idx}>
           {children}
         </Tag>
       );
@@ -182,6 +230,7 @@ export function Reader({
               <div className="rd-prose">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]}
                   components={{
                     h1: headingRenderer('h1'),
                     h2: headingRenderer('h2'),
@@ -199,9 +248,10 @@ export function Reader({
                         </a>
                       );
                     },
+                    img: GatedImage,
                   }}
                 >
-                  {note.body}
+                  {renderText}
                 </ReactMarkdown>
               </div>
               <footer className="rd-article-foot">

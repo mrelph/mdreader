@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 export type PromptKind =
   | { kind: 'input'; title: string; placeholder?: string; initial?: string; submitLabel?: string; danger?: boolean }
-  | { kind: 'confirm'; title: string; body?: string; submitLabel?: string; danger?: boolean };
+  | { kind: 'confirm'; title: string; body?: string; submitLabel?: string; cancelLabel?: string; danger?: boolean };
 
 type Props = {
   open: PromptKind | null;
@@ -78,7 +78,7 @@ export function Prompt({ open, onSubmit, onCancel }: Props) {
         )}
         <div className="rd-modal-actions">
           <button type="button" className="rd-modal-btn" onClick={onCancel}>
-            Cancel
+            {open.kind === 'confirm' ? open.cancelLabel ?? 'Cancel' : 'Cancel'}
           </button>
           <button
             type="submit"

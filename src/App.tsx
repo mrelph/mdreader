@@ -6,6 +6,7 @@ import { Reader } from './components/Reader';
 import { EmptyState } from './components/EmptyState';
 import { Prompt, type PromptKind } from './components/Prompt';
 import { Cheatsheet } from './components/Cheatsheet';
+import { UpdateBanner } from './components/UpdateBanner';
 import { fileToNote } from './notes';
 import { openMarkdownFile } from './openFile';
 import { getElectron } from './electron';
@@ -100,6 +101,24 @@ function App() {
     void electron.window.isMaximized().then(setMaximized);
     return electron.window.onMaximizedChange(setMaximized);
   }, [electron]);
+
+  // Mirror `editing` into a ref so the workspace-change listener can read the
+  // latest value without re-subscribing (and clobbering the debounce) on
+  // every keystroke.
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
+
+  // Live draft text, mirrored into a ref so the flush-on-switch cleanup can
+  // read the latest keystrokes without depending on `draft` (which would make
+  // the effect re-run — and flush — on every character).
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  // Last successfully-persisted state for the active note, keyed by path.
+  // The flush-on-switch cleanup reads mtime/body from here (not from the
+  // note captured when the effect ran) so a write triggered by switching
+  // away uses the freshest base mtime and never false-conflicts.
+  const savedRef = useRef<{ path: string; mtime?: number; body: string } | null>(null);
 
   // ── Promise-style prompt helper ─────────────────────────────────────────
   const askPrompt = useCallback((kind: PromptKind): Promise<string | null> => {
@@ -202,6 +221,18 @@ function App() {
     })();
     return () => { cancelled = true; };
   }, [electron, loadWorkspace]);
+
+  // ── External change refresh ─────────────────────────────────────────────
+  // When the workspace changes on disk (external editor, git, sync), re-read
+  // it — but skip while the user is mid-edit so a debounced watcher event
+  // can't yank the draft out from under them.
+  useEffect(() => {
+    if (!electron || !workspace) return;
+    return electron.workspace.onChanged(() => {
+      if (editingRef.current) return;
+      void refreshWorkspace();
+    });
+  }, [electron, workspace, refreshWorkspace]);
 
   // ── Single-file open (Ctrl+O) ───────────────────────────────────────────
   const handleOpenFile = useCallback(async () => {
@@ -363,6 +394,62 @@ function App() {
     [askPrompt, electron, handleCloseNote]
   );
 
+  // ── Rename note ─────────────────────────────────────────────────────────
+  const handleRenameNote = useCallback(
+    async (target: Note) => {
+      if (!electron || !target.path) return;
+      const sep = target.path.includes('\\') ? '\\' : '/';
+      const dir = target.path.slice(0, target.path.lastIndexOf(sep));
+      const oldName = target.path.slice(target.path.lastIndexOf(sep) + 1);
+      const dotIdx = oldName.lastIndexOf('.');
+      const stem = dotIdx > 0 ? oldName.slice(0, dotIdx) : oldName;
+      const ext = dotIdx > 0 ? oldName.slice(dotIdx) : '.md';
+      const input = await askPrompt({
+        kind: 'input',
+        title: 'Rename note',
+        initial: stem,
+        placeholder: 'note-title',
+        submitLabel: 'Rename',
+      });
+      if (!input) return;
+      // Keep the original extension unless the user typed their own.
+      const safe = input.replace(/[\\/:*?"<>|]/g, '_').trim();
+      if (!safe) return;
+      const newName = /\.(md|markdown|mdx|txt)$/i.test(safe) ? safe : `${safe}${ext}`;
+      const newPath = `${dir}${sep}${newName}`;
+      if (newPath === target.path) return;
+      try {
+        await electron.workspace.rename(target.path, newPath);
+        // The id is derived from the path, so renaming mints a new note. Read
+        // the file back and swap it in, migrating any open tab / active id.
+        const fresh = await electron.readFile(newPath);
+        if (fresh) {
+          const renamed = fileToNote({ ...fresh, folder: target.folder });
+          setNotes((prev) => prev.map((n) => (n.id === target.id ? renamed : n)));
+          setTabs((prev) => prev.map((t) => (t.id === target.id ? { id: renamed.id, title: renamed.title } : t)));
+          setActiveId((cur) => (cur === target.id ? renamed.id : cur));
+          // Carry the star over to the new id.
+          setStarredIds((prev) => {
+            if (!prev.has(target.id)) return prev;
+            const next = new Set(prev);
+            next.delete(target.id);
+            next.add(renamed.id);
+            try { localStorage.setItem(STARRED_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+            return next;
+          });
+        }
+      } catch (err) {
+        await askPrompt({
+          kind: 'confirm',
+          title: 'Could not rename note',
+          body: (err as Error).message,
+          submitLabel: 'OK',
+        });
+      }
+    },
+    [electron, askPrompt]
+  );
+
   // ── Edit-mode draft state ───────────────────────────────────────────────
   const note = useMemo(() => {
     const found = notes.find((n) => n.id === activeId) ?? null;
@@ -371,9 +458,13 @@ function App() {
   }, [notes, activeId, starredIds]);
 
   // Whenever the user switches notes or toggles edit mode on, sync the draft
-  // from the on-disk body so we don't show stale text from the previous file.
+  // from the on-disk body so we don't show stale text from the previous file,
+  // and snapshot the freshly-loaded state as the flush baseline.
   useEffect(() => {
-    if (note && editing) setDraft(note.body);
+    if (note && editing) {
+      setDraft(note.body);
+      if (note.path) savedRef.current = { path: note.path, mtime: note.mtime, body: note.body };
+    }
     setSaveStatus('idle');
   }, [note?.id, editing]);
 
@@ -383,7 +474,9 @@ function App() {
     if (!note || !note.path || !electron) return;
     setSaveStatus('saving');
     try {
-      const written = await electron.workspace.writeFile(note.path, draft);
+      // Pass the mtime we loaded from so the main process can reject the write
+      // if the file changed on disk underneath us.
+      const written = await electron.workspace.writeFile(note.path, draft, note.mtime);
       const updated: Note = {
         ...note,
         body: written.text,
@@ -394,12 +487,46 @@ function App() {
         preview: fileToNote({ ...written, folder: note.folder }).preview,
       };
       upsertNote(updated);
+      savedRef.current = { path: note.path, mtime: written.mtime, body: written.text };
       setTabs((prev) => prev.map((t) => (t.id === note.id ? { ...t, title: updated.title } : t)));
       setSaveStatus('saved');
-    } catch {
+    } catch (err) {
       setSaveStatus('error');
+      // A stale-write conflict is worth an explicit prompt: let the user
+      // choose between overwriting on disk or reloading the newer version.
+      if (/changed on disk/i.test((err as Error)?.message ?? '')) {
+        const overwrite = await askPrompt({
+          kind: 'confirm',
+          title: 'File changed on disk',
+          body: `"${note.title}" was modified by another program since you opened it. Overwrite those changes with your version, or discard yours and reload?`,
+          submitLabel: 'Overwrite',
+          cancelLabel: 'Reload',
+          danger: true,
+        });
+        if (overwrite !== null) {
+          // Overwrite: retry with no base mtime, which skips the guard.
+          try {
+            const written = await electron.workspace.writeFile(note.path, draft, undefined);
+            upsertNote({ ...note, body: written.text, mtime: written.mtime });
+            savedRef.current = { path: note.path, mtime: written.mtime, body: written.text };
+            setSaveStatus('saved');
+          } catch {
+            setSaveStatus('error');
+          }
+        } else {
+          // Reload: pull the on-disk version into the editor and reader.
+          const fresh = await electron.readFile(note.path);
+          if (fresh) {
+            const reloaded = fileToNote({ ...fresh, folder: note.folder });
+            upsertNote(reloaded);
+            setDraft(reloaded.body);
+            savedRef.current = { path: reloaded.path!, mtime: reloaded.mtime, body: reloaded.body };
+            setSaveStatus('idle');
+          }
+        }
+      }
     }
-  }, [note, draft, electron, upsertNote]);
+  }, [note, draft, electron, upsertNote, askPrompt]);
 
   useEffect(() => {
     if (!editing || !note?.path) return;
@@ -408,6 +535,26 @@ function App() {
     const t = setTimeout(saveDraft, 600);
     return () => clearTimeout(t);
   }, [draft, editing, note?.path, note?.body, saveDraft]);
+
+  // Flush any unsaved draft when the active note changes or edit mode ends, so
+  // switching away mid-debounce can't drop the last keystrokes. Reads the
+  // outgoing note's *latest persisted* state from savedRef (updated by every
+  // successful autosave) so the write uses a fresh base mtime and won't
+  // false-conflict, plus the live draft from draftRef. Runs only on note.id /
+  // editing changes — not on every keystroke.
+  useEffect(() => {
+    if (!editing || !note?.path) return;
+    const outgoingPath = note.path;
+    return () => {
+      const saved = savedRef.current;
+      if (!saved || saved.path !== outgoingPath) return;
+      const pending = draftRef.current;
+      if (pending === saved.body) return; // nothing unsaved
+      void electron?.workspace
+        .writeFile(outgoingPath, pending, saved.mtime)
+        .catch(() => { /* a conflict will resurface when the file is reopened */ });
+    };
+  }, [note?.id, editing, electron]);
 
   // Drop the "Saved" badge after a beat so the meta row stops looking
   // permanently mid-save. Errors stay visible until the next edit.
@@ -527,6 +674,7 @@ function App() {
 
   const reader = (
     <div className="rd rd-mica" data-theme={theme} data-focused={focused ? '1' : '0'}>
+      <UpdateBanner />
       <Titlebar
         theme={theme}
         onTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
@@ -560,6 +708,7 @@ function App() {
             onNewFolder={handleNewFolder}
             onCloseNote={handleCloseNote}
             onDeleteNote={handleDeleteNote}
+            onRenameNote={handleRenameNote}
             onDeleteFolder={handleDeleteFolder}
             onToggleStar={handleToggleStar}
           />
