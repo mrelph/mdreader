@@ -1,5 +1,6 @@
 import { CloseIcon, EyeIcon, FocusIcon, HelpIcon, MoonIcon, OpenIcon, PencilIcon, SunIcon } from '../icons';
 import { getElectron } from '../electron';
+import { ExportMenu } from './ExportMenu';
 
 type Props = {
   theme: 'light' | 'dark';
@@ -15,6 +16,8 @@ type Props = {
   onToggleHelp: () => void;
   helpOpen: boolean;
   maximized: boolean;
+  getExportHtml: () => string;
+  hasNote: boolean;
 };
 
 export function Titlebar({
@@ -31,6 +34,8 @@ export function Titlebar({
   onToggleHelp,
   helpOpen,
   maximized,
+  getExportHtml,
+  hasNote,
 }: Props) {
   const electron = getElectron();
   const onMin = electron ? () => electron.window.minimize() : undefined;
@@ -64,6 +69,7 @@ export function Titlebar({
         >
           <HelpIcon />
         </button>
+        <ExportMenu getHtml={getExportHtml} title={title} disabled={!hasNote} />
         <button className="rd-tb-icon" title="Open .md file" onClick={onOpenFile}>
           <OpenIcon />
         </button>

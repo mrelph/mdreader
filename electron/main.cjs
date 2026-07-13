@@ -376,15 +376,17 @@ ipcMain.handle('fs:create-folder', async (_event, parentDir, folderName) => {
   return { path: folderPath, name: safe };
 });
 
+// Deletes go to the OS trash (Recycle Bin) rather than being unlinked, so an
+// accidental delete is recoverable.
 ipcMain.handle('fs:delete-file', async (_event, filePath) => {
   if (typeof filePath !== 'string' || !filePath) throw new Error('Invalid path');
-  await fs.unlink(filePath);
+  await shell.trashItem(filePath);
   return true;
 });
 
 ipcMain.handle('fs:delete-folder', async (_event, folderPath) => {
   if (typeof folderPath !== 'string' || !folderPath) throw new Error('Invalid path');
-  await fs.rm(folderPath, { recursive: true, force: false });
+  await shell.trashItem(folderPath);
   return true;
 });
 
@@ -418,6 +420,78 @@ ipcMain.handle('app:get-launch-files', async () => {
   }
   return results;
 });
+
+// ── Export ────────────────────────────────────────────────────────────────────
+// Export the current note to PDF or HTML. The renderer sends the rendered HTML
+// string; we stamp it into a styled wrapper and either print-to-PDF or write
+// to a user-chosen file.
+
+ipcMain.handle('export:pdf', async (event, html, title) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Export as PDF',
+    defaultPath: `${title || 'note'}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+  if (result.canceled || !result.filePath) return false;
+
+  // Create an off-screen window to render the HTML and print to PDF.
+  const print = new BrowserWindow({ show: false, width: 800, height: 1100 });
+  const styledHtml = wrapExportHtml(html, title);
+  await print.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`);
+  const pdf = await print.webContents.printToPDF({
+    pageSize: 'A4',
+    printBackground: true,
+    margins: { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 },
+  });
+  print.close();
+  await fs.writeFile(result.filePath, pdf);
+  shell.showItemInFolder(result.filePath);
+  return true;
+});
+
+ipcMain.handle('export:html', async (event, html, title) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Export as HTML',
+    defaultPath: `${title || 'note'}.html`,
+    filters: [{ name: 'HTML', extensions: ['html'] }],
+  });
+  if (result.canceled || !result.filePath) return false;
+  await fs.writeFile(result.filePath, wrapExportHtml(html, title), 'utf8');
+  shell.showItemInFolder(result.filePath);
+  return true;
+});
+
+function wrapExportHtml(body, title) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(title || 'Note')}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #1a1a2e; }
+  h1,h2,h3 { margin-top: 1.5em; }
+  pre { background: #f5f5f5; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-size: 0.88em; }
+  code { font-family: 'JetBrains Mono', Menlo, monospace; font-size: 0.88em; background: #f0f0f0; padding: 1px 5px; border-radius: 3px; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 3px solid #ddd; margin-left: 0; padding-left: 16px; color: #555; }
+  table { border-collapse: collapse; width: 100%; } th, td { border-bottom: 1px solid #e0e0e0; padding: 8px 12px; text-align: left; }
+  th { font-weight: 600; background: #fafafa; }
+  a { color: #3a5fc8; }
+  img { max-width: 100%; border-radius: 4px; }
+  hr { border: 0; height: 1px; background: #e0e0e0; margin: 2em 0; }
+</style>
+</head>
+<body>
+${body}
+</body>
+</html>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 ipcMain.on('window:minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();

@@ -711,6 +711,11 @@ function App() {
         onToggleHelp={() => setHelpOpen((v) => !v)}
         helpOpen={helpOpen}
         maximized={maximized}
+        hasNote={!!note}
+        getExportHtml={() => {
+          const el = document.querySelector('.rd-prose');
+          return el?.innerHTML ?? '';
+        }}
       />
       <div className="rd-body">
         {!focused && (
@@ -755,6 +760,7 @@ function App() {
           {note ? (
             <Reader
               note={note}
+              allNotes={decoratedNotes}
               focused={focused}
               editing={editing}
               draft={draft}
@@ -764,6 +770,7 @@ function App() {
               findOpen={findOpen}
               onCloseFind={() => setFindOpen(false)}
               onToggleStar={() => handleToggleStar(note.id)}
+              onNavigate={handleSelect}
             />
           ) : (
             <EmptyState

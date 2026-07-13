@@ -43,6 +43,11 @@ export type ElectronAPI = {
 
   onOpenFilePath: (cb: (path: string) => void) => () => void;
 
+  export: {
+    pdf: (html: string, title: string) => Promise<boolean>;
+    html: (html: string, title: string) => Promise<boolean>;
+  };
+
   updater: {
     check: () => Promise<UpdateStatus>;
     download: () => Promise<void>;

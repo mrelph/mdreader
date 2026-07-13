@@ -52,6 +52,12 @@ contextBridge.exposeInMainWorld('electron', {
     return () => ipcRenderer.removeListener('app:open-file-path', handler);
   },
 
+  // Export current note to PDF or HTML.
+  export: {
+    pdf: (html, title) => ipcRenderer.invoke('export:pdf', html, title),
+    html: (html, title) => ipcRenderer.invoke('export:html', html, title),
+  },
+
   // Auto-updater surface.
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),

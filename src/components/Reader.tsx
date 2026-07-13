@@ -4,9 +4,11 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { Note, TocEntry } from '../types';
 import { buildToc, makeSlugger, readingMinutes, stripFrontmatter, wordCount } from '../notes';
+import { buildResolver, replaceWikilinks } from '../wikilinks';
 import { Outline } from './Outline';
 import { Editor } from './Editor';
 import { FindBar } from './FindBar';
+import { Backlinks } from './Backlinks';
 import { StarIcon } from '../icons';
 
 // Remote images are gated behind a click so a shared note can't phone home
@@ -49,6 +51,7 @@ function nodeText(node: React.ReactNode): string {
 
 type Props = {
   note: Note;
+  allNotes: Note[];
   focused: boolean;
   editing: boolean;
   draft: string;
@@ -58,10 +61,12 @@ type Props = {
   findOpen: boolean;
   onCloseFind: () => void;
   onToggleStar: () => void;
+  onNavigate: (id: string) => void;
 };
 
 export function Reader({
   note,
+  allNotes,
   focused,
   editing,
   draft,
@@ -71,14 +76,22 @@ export function Reader({
   findOpen,
   onCloseFind,
   onToggleStar,
+  onNavigate,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
   const [activeIdx, setActiveIdx] = useState(0);
 
+  // Build a wikilink resolver across all notes so [[Target]] can navigate.
+  const wikilinkResolver = useMemo(() => buildResolver(allNotes), [allNotes]);
+
   // The rendered/read view drops any YAML frontmatter block; the editor keeps
-  // the raw text so the user can see and edit it.
-  const renderText = useMemo(() => stripFrontmatter(note.body), [note.body]);
+  // the raw text so the user can see and edit it. Wikilinks are rewritten
+  // into markdown anchor links before rendering so ReactMarkdown can handle them.
+  const renderText = useMemo(
+    () => replaceWikilinks(stripFrontmatter(note.body), wikilinkResolver),
+    [note.body, wikilinkResolver]
+  );
   // Text the find-bar and outline reason about: the draft while editing, the
   // rendered (frontmatter-stripped) text while reading, so match offsets line
   // up with what's on screen.
@@ -235,11 +248,31 @@ export function Reader({
                     h1: headingRenderer('h1'),
                     h2: headingRenderer('h2'),
                     h3: headingRenderer('h3'),
-                    a: ({ href, children, ...rest }) => {
+                    a: ({ href, children }) => {
+                      // Wikilink → navigate within the app.
+                      if (href?.startsWith('#wikilink=')) {
+                        const target = decodeURIComponent(href.slice('#wikilink='.length));
+                        const id = wikilinkResolver.get(target.trim().toLowerCase().replace(/\s+/g, ' '));
+                        return (
+                          <a
+                            href="#"
+                            className="rd-wikilink"
+                            onClick={(e) => { e.preventDefault(); if (id) onNavigate(id); }}
+                          >
+                            {children}
+                          </a>
+                        );
+                      }
+                      if (href?.startsWith('#wikilink-missing=')) {
+                        return (
+                          <a href="#" className="rd-wikilink-missing" onClick={(e) => e.preventDefault()}>
+                            {children}
+                          </a>
+                        );
+                      }
                       const isExternal = !!href && /^(https?:|mailto:)/i.test(href);
                       return (
                         <a
-                          {...rest}
                           href={href}
                           target={isExternal ? '_blank' : undefined}
                           rel={isExternal ? 'noopener noreferrer' : undefined}
@@ -259,6 +292,7 @@ export function Reader({
                 <span className="rd-article-foot-text">end of note</span>
                 <span className="rd-article-foot-rule" />
               </footer>
+              <Backlinks note={note} allNotes={allNotes} onSelect={onNavigate} />
             </>
           )}
         </article>

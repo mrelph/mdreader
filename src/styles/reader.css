@@ -1633,3 +1633,116 @@
 .rd-sort select:focus {
   border-color: var(--rd-accent);
 }
+
+/* ---------- Wikilinks ---------- */
+.rd-prose a.rd-wikilink {
+  color: #7c4dff;
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+.rd-prose a.rd-wikilink:hover {
+  color: #651fff;
+  border-bottom-style: solid;
+}
+[data-theme='dark'] .rd-prose a.rd-wikilink {
+  color: #b388ff;
+}
+[data-theme='dark'] .rd-prose a.rd-wikilink:hover {
+  color: #d1c4ff;
+}
+.rd-prose a.rd-wikilink-missing {
+  color: #c0392b;
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+  opacity: 0.8;
+}
+.rd-prose a.rd-wikilink-missing:hover {
+  opacity: 1;
+  border-bottom-style: solid;
+}
+[data-theme='dark'] .rd-prose a.rd-wikilink-missing {
+  color: #e57373;
+}
+
+/* ---------- Backlinks panel ---------- */
+.rd-backlinks {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rd-line);
+}
+.rd-backlinks-head {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--rd-fg-3);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.rd-backlinks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rd-backlinks-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--rd-fg-2);
+  font-size: 12.5px;
+  font-family: var(--rd-ui);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.rd-backlinks-item:hover {
+  background: var(--rd-hover);
+  color: var(--rd-fg);
+}
+.rd-backlinks-context {
+  display: block;
+  font-size: 11px;
+  color: var(--rd-fg-3);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Export menu ---------- */
+.rd-export-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.rd-export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  background: var(--rd-canvas);
+  border: 1px solid var(--rd-line);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+}
+.rd-export-item {
+  padding: 7px 12px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--rd-fg-2);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--rd-ui);
+}
+.rd-export-item:hover {
+  background: var(--rd-hover);
+  color: var(--rd-fg);
+}
