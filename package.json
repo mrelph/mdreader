@@ -1,8 +1,8 @@
 {
-  "name": "mdreader",
+  "name": "inkwell",
   "private": true,
   "version": "1.0.0",
-  "description": "A clean, modern markdown reader for Windows.",
+  "description": "A calm editorial markdown reader for Windows.",
   "author": "mrelph <mrelph@outlook.com>",
   "type": "module",
   "main": "electron/main.cjs",
@@ -23,6 +23,8 @@
     "dist:win:portable": "npm run build && electron-builder --win portable"
   },
   "dependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.0",
     "electron-updater": "^6.8.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -44,8 +46,8 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.mrelph.mdreader",
-    "productName": "mdreader",
+    "appId": "com.mrelph.inkwell",
+    "productName": "Inkwell",
     "publish": {
       "provider": "github",
       "owner": "mrelph",
@@ -89,7 +91,7 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "createDesktopShortcut": true,
-      "shortcutName": "mdreader",
+      "shortcutName": "Inkwell",
       "artifactName": "${productName}-${version}-setup.exe"
     },
     "msi": {
@@ -97,14 +99,14 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "mdreader",
+      "shortcutName": "Inkwell",
       "runAfterFinish": true,
       "artifactName": "${productName}-${version}.msi"
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.exe",
       "requestExecutionLevel": "user",
-      "unpackDirName": "mdreader-${version}"
+      "unpackDirName": "Inkwell-${version}"
     },
     "fileAssociations": [
       {

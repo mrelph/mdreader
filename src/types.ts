@@ -35,3 +35,7 @@ export type Workspace = {
 };
 
 export type SortMode = 'modified' | 'alpha' | 'created' | 'words';
+
+export type ViewMode = 'read' | 'split' | 'write';
+
+export type Theme = 'paper' | 'light' | 'sage' | 'rose' | 'dark' | 'midnight';

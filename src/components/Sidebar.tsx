@@ -164,6 +164,27 @@ export function Sidebar({
 
   return (
     <aside className="rd-side">
+      <div className="rd-side-actions">
+        <button
+          className="rd-side-action rd-side-action-primary"
+          onClick={onNewFile}
+          disabled={!hasWorkspace}
+          title={hasWorkspace ? 'Create a new note (Ctrl+N)' : inElectron ? 'Open a notes folder first' : 'New note requires the desktop app'}
+        >
+          <FilePlusIcon />
+          <span>New note</span>
+        </button>
+        <button
+          className="rd-side-action rd-side-action-icon"
+          onClick={onNewFolder}
+          disabled={!hasWorkspace}
+          title={hasWorkspace ? 'Create a new folder (Ctrl+Shift+N)' : inElectron ? 'Open a notes folder first' : 'New folder requires the desktop app'}
+        >
+          <FolderPlusIcon />
+          <span className="rd-sr-only">New folder</span>
+        </button>
+      </div>
+
       <div className="rd-search">
         <span className="rd-search-icon">
           <SearchIcon />
@@ -174,29 +195,6 @@ export function Sidebar({
           value={query}
           onChange={(e) => onQuery(e.target.value)}
         />
-        <span className="rd-search-kbd">Ctrl+K</span>
-      </div>
-
-      <div className="rd-side-actions-label">New</div>
-      <div className="rd-side-actions">
-        <button
-          className="rd-side-action"
-          onClick={onNewFile}
-          disabled={!hasWorkspace}
-          title={hasWorkspace ? 'Create a new note (Ctrl+N)' : inElectron ? 'Open a notes folder first' : 'New note requires the desktop app'}
-        >
-          <FilePlusIcon />
-          <span>Note</span>
-        </button>
-        <button
-          className="rd-side-action"
-          onClick={onNewFolder}
-          disabled={!hasWorkspace}
-          title={hasWorkspace ? 'Create a new folder (Ctrl+Shift+N)' : inElectron ? 'Open a notes folder first' : 'New folder requires the desktop app'}
-        >
-          <FolderPlusIcon />
-          <span>Folder</span>
-        </button>
       </div>
 
       <div className="rd-folders">

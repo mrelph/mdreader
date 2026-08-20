@@ -1,18 +1,17 @@
-import { CloseIcon, EyeIcon, FocusIcon, HelpIcon, MoonIcon, OpenIcon, PencilIcon, SunIcon } from '../icons';
+import type { Theme } from '../types';
+import { CloseIcon, FocusIcon, HelpIcon, OpenIcon } from '../icons';
 import { getElectron } from '../electron';
 import { ExportMenu } from './ExportMenu';
+import { ThemeMenu } from './ThemeMenu';
 
 type Props = {
-  theme: 'light' | 'dark';
-  onTheme: () => void;
+  theme: Theme;
+  onTheme: (theme: Theme) => void;
   title: string;
   accent: string;
   onFocus: () => void;
   focused: boolean;
   onOpenFile: () => void;
-  editing: boolean;
-  canEdit: boolean;
-  onToggleEdit: () => void;
   onToggleHelp: () => void;
   helpOpen: boolean;
   maximized: boolean;
@@ -28,9 +27,6 @@ export function Titlebar({
   onFocus,
   focused,
   onOpenFile,
-  editing,
-  canEdit,
-  onToggleEdit,
   onToggleHelp,
   helpOpen,
   maximized,
@@ -45,22 +41,11 @@ export function Titlebar({
   return (
     <div className="rd-tb">
       <div className="rd-tb-left">
-        <div className="rd-tb-dot" style={{ background: accent }} />
-        <span className="rd-tb-app">mdreader</span>
-        <span className="rd-tb-sep">·</span>
-        <span className="rd-tb-title">{title}</span>
+        <div className="rd-tb-dot" style={{ background: accent }}>i</div>
+        <span className="rd-tb-app">Inkwell</span>
       </div>
       <div className="rd-tb-mid" />
       <div className="rd-tb-right">
-        <button
-          className="rd-tb-icon"
-          title={editing ? 'Read mode' : 'Edit mode'}
-          onClick={onToggleEdit}
-          disabled={!canEdit}
-          data-active={editing ? '1' : '0'}
-        >
-          {editing ? <EyeIcon /> : <PencilIcon />}
-        </button>
         <button
           className="rd-tb-icon"
           title="Keyboard shortcuts (Ctrl+/)"
@@ -81,9 +66,7 @@ export function Titlebar({
         >
           <FocusIcon />
         </button>
-        <button className="rd-tb-icon" title="Toggle theme" onClick={onTheme}>
-          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-        </button>
+        <ThemeMenu theme={theme} onTheme={onTheme} />
         <div className="rd-tb-gap" />
         <button className="rd-win rd-win-min" title="Minimize" onClick={onMin} disabled={!onMin}>
           <span />

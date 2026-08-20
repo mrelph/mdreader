@@ -1,8 +1,8 @@
-# mdreader
+# Inkwell
 
-A fast, modern markdown reader and lightweight note-taker for **Windows**. File-system-based, workspace-oriented, with wikilinks, tags, syntax highlighting, and a distraction-free reading experience.
+A calm markdown reader and lightweight note-taker for **Windows**. File-system-based, workspace-oriented, with wikilinks, tags, syntax highlighting, and a deliberate reading and writing experience.
 
-Built with Electron and the Windows 11 Mica backdrop — translucent panels over your real desktop wallpaper.
+Built with Electron around a warm editorial worktable: a generous paper reader, a focused source editor, and your local library close at hand.
 
 ## Quick start
 
@@ -30,7 +30,8 @@ npm run dev             # → http://localhost:5173
 
 ### Writing
 
-- **Edit mode** — `Ctrl+E` toggles a plain-text markdown editor with 600ms autosave.
+- **Read, Split, and Write views** — move from a finished page to live side-by-side preview or a dedicated source editor.
+- **Quick edit toggle** — `Ctrl+E` switches between Read and Write, with 600ms autosave.
 - **Formatting shortcuts** — Bold (`Ctrl+B`), italic (`Ctrl+I`), inline code (`` Ctrl+` ``), heading levels (`Ctrl+1/2/3`).
 - **List continuation** — `Enter` on a bullet/numbered/task-list item continues the list; `Enter` on an empty marker exits it.
 - **Conflict detection** — if a file changes on disk while you're editing (git pull, sync, another editor), you're prompted to Overwrite or Reload rather than silently clobbering.
@@ -57,7 +58,7 @@ npm run dev             # → http://localhost:5173
 
 ### System integration
 
-- **File association** — `.md` and `.markdown` files open in mdreader from Explorer (after install).
+- **File association** — `.md` and `.markdown` files open in Inkwell from Explorer (after install).
 - **Single instance** — opening a second `.md` file passes it to the running instance.
 - **Auto-update** — checks GitHub Releases on boot and every 4 hours. Download and restart from the in-app banner.
 - **Trash delete** — deleted notes go to the Recycle Bin, not permanent deletion.
@@ -75,9 +76,9 @@ npm run dev             # → http://localhost:5173
 npm run build              # web bundle → dist/
 npm run pack               # unpacked Electron app → release/win-unpacked/
 npm run dist:win           # all three Windows artifacts at once
-npm run dist:win:nsis      # → release/mdreader-x.y.z-setup.exe
-npm run dist:win:msi       # → release/mdreader-x.y.z.msi
-npm run dist:win:portable  # → release/mdreader-x.y.z-portable.exe
+npm run dist:win:nsis      # → release/Inkwell-x.y.z-setup.exe
+npm run dist:win:msi       # → release/Inkwell-x.y.z.msi
+npm run dist:win:portable  # → release/Inkwell-x.y.z-portable.exe
 ```
 
 | Artifact | Use case |
@@ -146,7 +147,7 @@ src/
 ## Design notes
 
 - **Custom titlebar** — `titleBarStyle: 'hidden'` on Windows keeps native resize borders and Aero Snap; `frame: false` on macOS/Linux hides the traffic lights.
-- **Mica** — `backgroundMaterial: 'mica'` on Windows 11 build 22000+. Falls back to an opaque fill on Windows 10.
+- **Editorial surfaces** — Source Serif 4 leads the document while Manrope keeps the library and controls compact and legible.
 - **Theming** — all colours are CSS custom properties (`--rd-*`), switched by `[data-theme='dark']` on the root element.
 - **No database** — state lives in the filesystem (workspace folder) and localStorage (theme, sort, stars). Portable and sync-friendly.
 

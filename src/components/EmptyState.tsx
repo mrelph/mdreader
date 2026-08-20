@@ -14,7 +14,7 @@ export function EmptyState({ hasWorkspace, inElectron, onOpenWorkspace, onNewFil
       <div className="rd-empty">
         <div className="rd-empty-title">Pick a folder for your notes</div>
         <div className="rd-empty-hint">
-          mdreader treats the folder you choose as your workspace. Subfolders become
+          Inkwell treats the folder you choose as your workspace. Subfolders become
           tags in the sidebar; new notes save as <code>.md</code> files inside.
         </div>
         <div className="rd-empty-actions">

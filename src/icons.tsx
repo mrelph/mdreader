@@ -62,6 +62,15 @@ export const MoonIcon = () => (
   </svg>
 );
 
+export const PaletteIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" {...stroke} strokeWidth={1.7}>
+    <path d="M12 3a9 9 0 1 0 0 18h1.2a1.8 1.8 0 0 0 1.3-3.1 1.8 1.8 0 0 1 1.3-3.1H18a3 3 0 0 0 3-3A8.8 8.8 0 0 0 12 3z" />
+    <circle cx="7.5" cy="11" r=".8" fill="currentColor" stroke="none" />
+    <circle cx="10" cy="7.5" r=".8" fill="currentColor" stroke="none" />
+    <circle cx="14.5" cy="7.5" r=".8" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 export const FocusIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" {...stroke} strokeWidth={1.8}>
     <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
@@ -111,6 +120,20 @@ export const EyeIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" {...stroke} strokeWidth={1.7}>
     <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
     <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+export const BookOpenIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" {...stroke} strokeWidth={1.7}>
+    <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3H11v17H5.5A2.5 2.5 0 0 0 3 22z" />
+    <path d="M21 5.5A2.5 2.5 0 0 0 18.5 3H13v17h5.5A2.5 2.5 0 0 1 21 22z" />
+  </svg>
+);
+
+export const SplitViewIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" {...stroke} strokeWidth={1.7}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M12 4v16" />
   </svg>
 );
 

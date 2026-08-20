@@ -11,11 +11,11 @@ import { QuickSwitcher } from './components/QuickSwitcher';
 import { fileToNote } from './notes';
 import { openMarkdownFile } from './openFile';
 import { getElectron } from './electron';
-import type { Note, SortMode, Tab, Workspace } from './types';
+import type { Note, SortMode, Tab, Theme, ViewMode, Workspace } from './types';
 
-const ACCENT_LIGHT = '#3a5fc8';
-const ACCENT_DARK = '#6a8fdf';
-const THEME_KEY = 'mdreader.theme';
+const ACCENT_LIGHT = '#e56d40';
+const ACCENT_DARK = '#ef8c65';
+const THEME_KEY = 'mdreader.theme.v2';
 const WORKSPACE_KEY = 'mdreader.workspaceDir';
 const STARRED_KEY = 'mdreader.starredIds';
 const SORT_KEY = 'mdreader.sortMode';
@@ -31,20 +31,23 @@ function readStarredIds(): Set<string> {
   }
 }
 
-type Theme = 'light' | 'dark';
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 function readInitialTheme(): Theme {
   try {
     const v = localStorage.getItem(THEME_KEY);
-    if (v === 'light' || v === 'dark') return v;
+    if (
+      v === 'paper' ||
+      v === 'light' ||
+      v === 'sage' ||
+      v === 'rose' ||
+      v === 'dark' ||
+      v === 'midnight'
+    ) return v;
   } catch {
     /* ignore */
   }
-  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  return 'light';
+  return 'paper';
 }
 
 function App() {
@@ -60,7 +63,8 @@ function App() {
   const [focused, setFocused] = useState<boolean>(false);
   const [tabs, setTabs] = useState<Tab[]>([]);
 
-  const [editing, setEditing] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('read');
+  const editing = viewMode !== 'read';
   const [draft, setDraft] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
@@ -184,7 +188,7 @@ function App() {
       upsertNote(note);
       setTabs((prev) => (prev.find((t) => t.id === note.id) ? prev : [...prev, { id: note.id, title: note.title }]));
       setActiveId(note.id);
-      setEditing(false);
+      setViewMode('read');
       return note;
     },
     [upsertNote]
@@ -294,7 +298,7 @@ function App() {
       upsertNote(note);
       setTabs((prev) => (prev.find((t) => t.id === note.id) ? prev : [...prev, { id: note.id, title: note.title }]));
       setActiveId(note.id);
-      setEditing(true);
+      setViewMode('write');
       setDraft('');
     } catch (err) {
       await askPrompt({
@@ -378,7 +382,7 @@ function App() {
         // Pick the next available note, or null if none.
         const remaining = notes.filter((n) => n.id !== id);
         setActiveId(remaining[0]?.id ?? null);
-        setEditing(false);
+        setViewMode('read');
       }
     },
     [activeId, notes]
@@ -609,7 +613,7 @@ function App() {
         setFocused((f) => !f);
       } else if (mod && e.key.toLowerCase() === 'e' && note?.path) {
         e.preventDefault();
-        setEditing((v) => !v);
+        setViewMode((mode) => (mode === 'read' ? 'write' : 'read'));
       } else if (mod && e.key === '/') {
         e.preventDefault();
         setHelpOpen((v) => !v);
@@ -673,11 +677,11 @@ function App() {
   }, [notes, workspace]);
 
   // ── Render helpers ──────────────────────────────────────────────────────
-  const accent = theme === 'dark' ? ACCENT_DARK : ACCENT_LIGHT;
+  const accent = theme === 'dark' || theme === 'midnight' ? ACCENT_DARK : ACCENT_LIGHT;
 
   const handleSelect = (id: string) => {
     setActiveId(id);
-    setEditing(false);
+    setViewMode('read');
     if (!tabs.find((t) => t.id === id)) {
       const target = notes.find((n) => n.id === id);
       if (target) setTabs([...tabs, { id, title: target.title }]);
@@ -691,23 +695,19 @@ function App() {
     else if (id === activeId) setActiveId(null);
   };
 
-  const titleText = note?.title ?? (workspace ? workspace.dir.split(/[\\/]/).filter(Boolean).pop() ?? 'mdreader' : 'No file open');
-  const canEdit = !!note?.path && inElectron;
+  const titleText = note?.title ?? (workspace ? workspace.dir.split(/[\\/]/).filter(Boolean).pop() ?? 'Inkwell' : 'No file open');
 
   const reader = (
     <div className="rd rd-mica" data-theme={theme} data-focused={focused ? '1' : '0'}>
       <UpdateBanner />
       <Titlebar
         theme={theme}
-        onTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+        onTheme={setTheme}
         title={titleText}
         accent={accent}
         focused={focused}
         onFocus={() => setFocused((f) => !f)}
         onOpenFile={handleOpenFile}
-        editing={editing}
-        canEdit={canEdit}
-        onToggleEdit={() => setEditing((v) => !v)}
         onToggleHelp={() => setHelpOpen((v) => !v)}
         helpOpen={helpOpen}
         maximized={maximized}
@@ -745,13 +745,13 @@ function App() {
           />
         )}
         <div className="rd-content">
-          {!focused && tabs.length > 0 && (
+          {!focused && tabs.length > 1 && (
             <Tabs
               tabs={tabs}
               activeId={activeId ?? ''}
               onSelect={(id) => {
                 setActiveId(id);
-                setEditing(false);
+                setViewMode('read');
               }}
               onClose={handleCloseTab}
               onNew={workspace ? handleNewFile : handleOpenFile}
@@ -762,7 +762,8 @@ function App() {
               note={note}
               allNotes={decoratedNotes}
               focused={focused}
-              editing={editing}
+              viewMode={viewMode}
+              onViewMode={setViewMode}
               draft={draft}
               onDraftChange={setDraft}
               onSave={saveDraft}
